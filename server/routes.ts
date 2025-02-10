@@ -34,6 +34,7 @@ export function registerRoutes(app: Express): Server {
       winningBetId: null,
     });
 
+    // Return the full bracket object
     res.status(201).json(bracket);
   });
 
@@ -45,8 +46,16 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/brackets/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const bracket = await storage.getBracket(parseInt(req.params.id));
-    if (!bracket) return res.sendStatus(404);
+
+    const bracketId = parseInt(req.params.id);
+    if (isNaN(bracketId)) {
+      return res.status(400).json({ message: "Invalid bracket ID" });
+    }
+
+    const bracket = await storage.getBracket(bracketId);
+    if (!bracket) {
+      return res.status(404).json({ message: "Bracket not found" });
+    }
 
     // If the bracket uses independent credits, include the user's bracket balance
     if (bracket.useIndependentCredits) {

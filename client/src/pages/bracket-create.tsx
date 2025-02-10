@@ -65,10 +65,15 @@ export default function BracketCreate() {
         }),
       };
 
+      console.log("Creating bracket with data:", bracketData);
       const res = await apiRequest("POST", "/api/brackets", bracketData);
-      return res.json();
+      const bracket = await res.json();
+      console.log("Created bracket:", bracket);
+      return bracket;
     },
     onSuccess: async (bracket) => {
+      console.log("Successfully created bracket:", bracket);
+
       // Prefetch and cache the new bracket data
       await queryClient.prefetchQuery({
         queryKey: [`/api/brackets/${bracket.id}`],
@@ -87,6 +92,7 @@ export default function BracketCreate() {
       setLocation(`/brackets/${bracket.id}`);
     },
     onError: (error: Error) => {
+      console.error("Failed to create bracket:", error);
       toast({
         title: "Failed to create bracket",
         description: error.message,
@@ -136,9 +142,9 @@ export default function BracketCreate() {
                   <FormItem>
                     <FormLabel>Players</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter player names, separated by commas" 
-                        {...field} 
+                      <Input
+                        placeholder="Enter player names, separated by commas"
+                        {...field}
                       />
                     </FormControl>
                     <FormDescription>
@@ -179,10 +185,10 @@ export default function BracketCreate() {
                       <FormItem>
                         <FormLabel>Access Code</FormLabel>
                         <FormControl>
-                          <Input 
+                          <Input
                             type="text"
                             placeholder="Enter access code for private tournament"
-                            {...field} 
+                            {...field}
                           />
                         </FormControl>
                         <FormDescription>

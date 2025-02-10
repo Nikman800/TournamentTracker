@@ -1,4 +1,4 @@
-import { IStorage } from "./storage.ts";
+import { IStorage } from "./storage";
 import { User, InsertUser, Bracket, Match, Bet, BracketBalance } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
@@ -11,7 +11,7 @@ export class MemStorage implements IStorage {
   private matches: Map<number, Match>;
   private bets: Map<number, Bet>;
   private bracketBalances: Map<number, BracketBalance>;
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
   currentId: { [key: string]: number };
 
   constructor() {
@@ -76,6 +76,12 @@ export class MemStorage implements IStorage {
   async createBracket(bracket: Omit<Bracket, "id">): Promise<Bracket> {
     const id = this.currentId.brackets++;
     const newBracket = { ...bracket, id };
+
+    // Ensure all required fields are present
+    if (!newBracket.name || !newBracket.structure || typeof newBracket.isPublic !== 'boolean') {
+      throw new Error("Missing required bracket fields");
+    }
+
     this.brackets.set(id, newBracket);
 
     // If using independent credits, create initial balances for the creator
@@ -91,7 +97,11 @@ export class MemStorage implements IStorage {
   }
 
   async getBracket(id: number): Promise<Bracket | undefined> {
-    return this.brackets.get(id);
+    const bracket = this.brackets.get(id);
+    if (!bracket) {
+      console.log(`Bracket ${id} not found. Available brackets:`, Array.from(this.brackets.keys()));
+    }
+    return bracket;
   }
 
   async listBrackets(): Promise<Bracket[]> {
