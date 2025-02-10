@@ -26,20 +26,21 @@ export default function BracketPage() {
     queryKey: [`/api/brackets/${id}`],
     enabled: !!id,
     staleTime: 0, // Always fetch fresh data
+    retry: 1, // Only retry once to avoid infinite loops
   });
 
   const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
-    enabled: !!id,
-    staleTime: 0, // Always fetch fresh data
+    enabled: !!id && !!bracket,
+    staleTime: 0,
   });
 
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
-      if (!bracket) return;
+      if (!bracket || !selectedMatch) return;
       const structure = JSON.parse(bracket.structure as string) as Match[];
       const updatedStructure = structure.map((match) =>
-        match.id === selectedMatch?.id ? { ...match, winner } : match
+        match.id === selectedMatch.id ? { ...match, winner } : match
       );
 
       await apiRequest("PATCH", `/api/brackets/${id}`, {
@@ -52,7 +53,7 @@ export default function BracketPage() {
     },
   });
 
-  if (bracketLoading || betsLoading) {
+  if (bracketLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -60,11 +61,11 @@ export default function BracketPage() {
     );
   }
 
-  if (!bracket || !bets) {
+  if (!bracket) {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center text-muted-foreground">
-          Bracket not found or you don't have access to it.
+          Bracket not found or you don't have access to it. Please try refreshing the page.
         </div>
       </div>
     );

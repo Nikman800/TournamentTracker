@@ -68,7 +68,13 @@ export default function BracketCreate() {
       const res = await apiRequest("POST", "/api/brackets", bracketData);
       return res.json();
     },
-    onSuccess: (bracket) => {
+    onSuccess: async (bracket) => {
+      // Prefetch and cache the new bracket data
+      await queryClient.prefetchQuery({
+        queryKey: [`/api/brackets/${bracket.id}`],
+        queryFn: async () => bracket,
+      });
+
       // Update the brackets list in the cache
       queryClient.invalidateQueries({ queryKey: ["/api/brackets"] });
 
@@ -77,8 +83,8 @@ export default function BracketCreate() {
         description: "You can now start managing your tournament.",
       });
 
-      // Navigate after ensuring the cache is updated
-      setTimeout(() => setLocation(`/brackets/${bracket.id}`), 100);
+      // Navigate to the new bracket page
+      setLocation(`/brackets/${bracket.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -90,7 +96,6 @@ export default function BracketCreate() {
   });
 
   const onSubmit = async (data: FormData) => {
-    console.log("Form data:", data);
     try {
       await createBracketMutation.mutateAsync(data);
     } catch (error) {
