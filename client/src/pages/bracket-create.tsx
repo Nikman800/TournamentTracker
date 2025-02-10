@@ -22,6 +22,9 @@ import { z } from "zod";
 
 const createBracketSchema = insertBracketSchema.extend({
   players: z.string().min(1, "Enter at least one player name"),
+  accessCode: z.string().optional(),
+  startingCredits: z.number().optional(),
+  useIndependentCredits: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof createBracketSchema>;
@@ -45,13 +48,22 @@ export default function BracketCreate() {
   const createBracketMutation = useMutation({
     mutationFn: async (data: FormData) => {
       // Convert players string to array and generate bracket structure
-      const players = data.players.split(",").map((p) => p.trim());
+      const players = data.players.split(",").map((p) => p.trim()).filter(Boolean);
       const structure = generateBracketStructure(players);
 
-      const res = await apiRequest("POST", "/api/brackets", {
-        ...data,
+      // Only include necessary fields based on whether it's public or private
+      const bracketData = {
+        name: data.name,
+        isPublic: data.isPublic,
         structure: JSON.stringify(structure),
-      });
+        ...(data.isPublic ? {} : {
+          accessCode: data.accessCode,
+          startingCredits: data.useIndependentCredits ? data.startingCredits : null,
+          useIndependentCredits: data.useIndependentCredits,
+        }),
+      };
+
+      const res = await apiRequest("POST", "/api/brackets", bracketData);
       return res.json();
     },
     onSuccess: (bracket) => {
@@ -91,7 +103,7 @@ export default function BracketCreate() {
                   <FormItem>
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Enter tournament name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -105,7 +117,10 @@ export default function BracketCreate() {
                   <FormItem>
                     <FormLabel>Players</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Enter player names, separated by commas" />
+                      <Input 
+                        placeholder="Enter player names, separated by commas" 
+                        {...field} 
+                      />
                     </FormControl>
                     <FormDescription>
                       Enter player names separated by commas (e.g., "Player 1, Player 2, Player 3")
@@ -145,7 +160,11 @@ export default function BracketCreate() {
                       <FormItem>
                         <FormLabel>Access Code</FormLabel>
                         <FormControl>
-                          <Input {...field} type="text" />
+                          <Input 
+                            type="text"
+                            placeholder="Enter access code for private tournament"
+                            {...field} 
+                          />
                         </FormControl>
                         <FormDescription>
                           Required for private tournaments
@@ -168,7 +187,7 @@ export default function BracketCreate() {
                         </div>
                         <FormControl>
                           <Switch
-                            checked={field.value}
+                            checked={field.value || false}
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
@@ -185,12 +204,11 @@ export default function BracketCreate() {
                           <FormLabel>Starting Credits</FormLabel>
                           <FormControl>
                             <Input
-                              {...field}
                               type="number"
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value))
-                              }
-                              value={field.value}
+                              placeholder="Enter starting credits amount"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormDescription>
