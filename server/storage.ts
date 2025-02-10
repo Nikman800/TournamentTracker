@@ -38,11 +38,14 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentId.users++;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
     const user: User = { 
       ...insertUser, 
       id, 
       virtualCurrency: 1000,
-      lastDailyBonus: new Date()
+      lastDailyBonus: yesterday
     };
     this.users.set(id, user);
     return user;
