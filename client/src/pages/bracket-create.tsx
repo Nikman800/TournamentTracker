@@ -20,10 +20,12 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
 
-const createBracketSchema = insertBracketSchema.extend({
+const createBracketSchema = z.object({
+  name: z.string().min(1, "Tournament name is required"),
   players: z.string().min(1, "Enter at least one player name"),
+  isPublic: z.boolean(),
   accessCode: z.string().optional(),
-  startingCredits: z.number().optional(),
+  startingCredits: z.number().min(1).optional(),
   useIndependentCredits: z.boolean().optional(),
 });
 
@@ -82,6 +84,15 @@ export default function BracketCreate() {
     },
   });
 
+  const onSubmit = async (data: FormData) => {
+    console.log("Form data:", data);
+    try {
+      await createBracketMutation.mutateAsync(data);
+    } catch (error) {
+      console.error("Submission error:", error);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
       <Card className="max-w-2xl mx-auto">
@@ -91,9 +102,7 @@ export default function BracketCreate() {
         <CardContent>
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((data) =>
-                createBracketMutation.mutate(data)
-              )}
+              onSubmit={form.handleSubmit(onSubmit)}
               className="space-y-6"
             >
               <FormField
