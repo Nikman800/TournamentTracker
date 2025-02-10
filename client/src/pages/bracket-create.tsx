@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertBracketSchema } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -69,11 +69,16 @@ export default function BracketCreate() {
       return res.json();
     },
     onSuccess: (bracket) => {
+      // Update the brackets list in the cache
+      queryClient.invalidateQueries({ queryKey: ["/api/brackets"] });
+
       toast({
         title: "Tournament bracket created!",
         description: "You can now start managing your tournament.",
       });
-      setLocation(`/brackets/${bracket.id}`);
+
+      // Navigate after ensuring the cache is updated
+      setTimeout(() => setLocation(`/brackets/${bracket.id}`), 100);
     },
     onError: (error: Error) => {
       toast({

@@ -25,21 +25,25 @@ export default function BracketPage() {
   const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
     enabled: !!id,
+    staleTime: 0, // Always fetch fresh data
   });
 
   const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
     enabled: !!id,
+    staleTime: 0, // Always fetch fresh data
   });
 
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
+      if (!bracket) return;
+      const structure = JSON.parse(bracket.structure as string) as Match[];
+      const updatedStructure = structure.map((match) =>
+        match.id === selectedMatch?.id ? { ...match, winner } : match
+      );
+
       await apiRequest("PATCH", `/api/brackets/${id}`, {
-        structure: JSON.stringify(
-          JSON.parse(bracket!.structure as string).map((match: Match) =>
-            match.id === selectedMatch?.id ? { ...match, winner } : match
-          )
-        ),
+        structure: JSON.stringify(updatedStructure),
       });
     },
     onSuccess: () => {
@@ -79,11 +83,12 @@ export default function BracketPage() {
         </div>
         {isCreator && bracket.status === "pending" && (
           <Button
-            onClick={() =>
-              apiRequest("PATCH", `/api/brackets/${id}`, {
+            onClick={async () => {
+              await apiRequest("PATCH", `/api/brackets/${id}`, {
                 status: "active",
-              })
-            }
+              });
+              queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
+            }}
           >
             Start Tournament
           </Button>
