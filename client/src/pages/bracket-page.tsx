@@ -6,12 +6,12 @@ import { BracketViewer } from "@/components/bracket-viewer";
 import { BettingPanel } from "@/components/betting-panel";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Bracket, Match, Bet } from "@shared/schema";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -22,12 +22,14 @@ export default function BracketPage() {
   const { user } = useAuth();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  const { data: bracket } = useQuery<Bracket>({
+  const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
+    enabled: !!id,
   });
 
-  const { data: bets } = useQuery<Bet[]>({
+  const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
+    enabled: !!id,
   });
 
   const updateMatchMutation = useMutation({
@@ -35,10 +37,8 @@ export default function BracketPage() {
       await apiRequest("PATCH", `/api/brackets/${id}`, {
         structure: JSON.stringify(
           JSON.parse(bracket!.structure as string).map((match: Match) =>
-            match.id === selectedMatch?.id
-              ? { ...match, winner }
-              : match,
-          ),
+            match.id === selectedMatch?.id ? { ...match, winner } : match
+          )
         ),
       });
     },
@@ -48,7 +48,23 @@ export default function BracketPage() {
     },
   });
 
-  if (!bracket || !bets) return null;
+  if (bracketLoading || betsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!bracket || !bets) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center text-muted-foreground">
+          Bracket not found or you don't have access to it.
+        </div>
+      </div>
+    );
+  }
 
   const isCreator = bracket.creatorId === user?.id;
 
