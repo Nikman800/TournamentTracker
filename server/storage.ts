@@ -1,5 +1,5 @@
 import { IStorage } from "./storage.ts";
-import { User, InsertUser, Bracket, Match, Bet } from "@shared/schema";
+import { User, InsertUser, Bracket, Match, Bet, BracketBalance } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
 
@@ -10,6 +10,7 @@ export class MemStorage implements IStorage {
   private brackets: Map<number, Bracket>;
   private matches: Map<number, Match>;
   private bets: Map<number, Bet>;
+  private bracketBalances: Map<number, BracketBalance>;
   sessionStore: session.SessionStore;
   currentId: { [key: string]: number };
 
@@ -18,7 +19,8 @@ export class MemStorage implements IStorage {
     this.brackets = new Map();
     this.matches = new Map();
     this.bets = new Map();
-    this.currentId = { users: 1, brackets: 1, matches: 1, bets: 1 };
+    this.bracketBalances = new Map();
+    this.currentId = { users: 1, brackets: 1, matches: 1, bets: 1, bracketBalances: 1 };
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
     });
@@ -36,15 +38,52 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentId.users++;
-    const user: User = { ...insertUser, id, virtualCurrency: 1000 };
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      virtualCurrency: 1000,
+      lastDailyBonus: new Date()
+    };
     this.users.set(id, user);
     return user;
+  }
+
+  async claimDailyBonus(userId: number): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+
+    const now = new Date();
+    const lastBonus = user.lastDailyBonus ? new Date(user.lastDailyBonus) : new Date(0);
+    const timeDiff = now.getTime() - lastBonus.getTime();
+    const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+    if (dayDiff < 1) {
+      throw new Error("Daily bonus already claimed");
+    }
+
+    const updated = { 
+      ...user, 
+      virtualCurrency: user.virtualCurrency + 100,
+      lastDailyBonus: now 
+    };
+    this.users.set(userId, updated);
+    return updated;
   }
 
   async createBracket(bracket: Omit<Bracket, "id">): Promise<Bracket> {
     const id = this.currentId.brackets++;
     const newBracket = { ...bracket, id };
     this.brackets.set(id, newBracket);
+
+    // If using independent credits, create initial balances for the creator
+    if (bracket.useIndependentCredits && bracket.startingCredits) {
+      await this.createBracketBalance({
+        userId: bracket.creatorId,
+        bracketId: id,
+        balance: bracket.startingCredits,
+      });
+    }
+
     return newBracket;
   }
 
@@ -61,6 +100,32 @@ export class MemStorage implements IStorage {
     if (!bracket) throw new Error("Bracket not found");
     const updated = { ...bracket, ...updates };
     this.brackets.set(id, updated);
+    return updated;
+  }
+
+  async getBracketBalance(userId: number, bracketId: number): Promise<number> {
+    const balance = Array.from(this.bracketBalances.values()).find(
+      (b) => b.userId === userId && b.bracketId === bracketId
+    );
+    return balance?.balance ?? 0;
+  }
+
+  async createBracketBalance(balance: Omit<BracketBalance, "id">): Promise<BracketBalance> {
+    const id = this.currentId.bracketBalances++;
+    const newBalance = { ...balance, id };
+    this.bracketBalances.set(id, newBalance);
+    return newBalance;
+  }
+
+  async updateBracketBalance(userId: number, bracketId: number, amount: number): Promise<BracketBalance> {
+    const balance = Array.from(this.bracketBalances.values()).find(
+      (b) => b.userId === userId && b.bracketId === bracketId
+    );
+    if (!balance) {
+      return this.createBracketBalance({ userId, bracketId, balance: amount });
+    }
+    const updated = { ...balance, balance: balance.balance + amount };
+    this.bracketBalances.set(balance.id, updated);
     return updated;
   }
 

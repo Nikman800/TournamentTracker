@@ -7,10 +7,21 @@ import { insertBracketSchema, insertBetSchema } from "@shared/schema";
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
+  // Daily Bonus
+  app.post("/api/claim-daily-bonus", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const user = await storage.claimDailyBonus(req.user.id);
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Brackets
   app.post("/api/brackets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
+
     const parsed = insertBracketSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
@@ -22,7 +33,7 @@ export function registerRoutes(app: Express): Server {
       status: "pending",
       winningBetId: null,
     });
-    
+
     res.status(201).json(bracket);
   });
 
@@ -36,7 +47,37 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const bracket = await storage.getBracket(parseInt(req.params.id));
     if (!bracket) return res.sendStatus(404);
+
+    // If the bracket uses independent credits, include the user's bracket balance
+    if (bracket.useIndependentCredits) {
+      const balance = await storage.getBracketBalance(req.user.id, bracket.id);
+      return res.json({ ...bracket, userBracketBalance: balance });
+    }
+
     res.json(bracket);
+  });
+
+  app.post("/api/brackets/:id/join", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const bracket = await storage.getBracket(parseInt(req.params.id));
+    if (!bracket) return res.sendStatus(404);
+
+    // For private brackets, verify access code
+    if (!bracket.isPublic && bracket.accessCode !== req.body.accessCode) {
+      return res.status(403).json({ message: "Invalid access code" });
+    }
+
+    // If using independent credits, create initial balance for the user
+    if (bracket.useIndependentCredits && bracket.startingCredits) {
+      await storage.createBracketBalance({
+        userId: req.user.id,
+        bracketId: bracket.id,
+        balance: bracket.startingCredits,
+      });
+    }
+
+    res.sendStatus(200);
   });
 
   app.patch("/api/brackets/:id", async (req, res) => {
@@ -44,7 +85,7 @@ export function registerRoutes(app: Express): Server {
     const bracket = await storage.getBracket(parseInt(req.params.id));
     if (!bracket) return res.sendStatus(404);
     if (bracket.creatorId !== req.user.id) return res.sendStatus(403);
-    
+
     const updated = await storage.updateBracket(bracket.id, req.body);
     res.json(updated);
   });
@@ -52,7 +93,7 @@ export function registerRoutes(app: Express): Server {
   // Bets
   app.post("/api/brackets/:id/bets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
+
     const parsed = insertBetSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
@@ -64,11 +105,20 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).json({ message: "Bracket not active" });
     }
 
-    if (req.user.virtualCurrency < parsed.data.amount) {
-      return res.status(400).json({ message: "Insufficient funds" });
+    // Handle betting based on whether the bracket uses independent credits
+    if (bracket.useIndependentCredits) {
+      const balance = await storage.getBracketBalance(req.user.id, bracket.id);
+      if (balance < parsed.data.amount) {
+        return res.status(400).json({ message: "Insufficient bracket balance" });
+      }
+      await storage.updateBracketBalance(req.user.id, bracket.id, -parsed.data.amount);
+    } else {
+      if (req.user.virtualCurrency < parsed.data.amount) {
+        return res.status(400).json({ message: "Insufficient funds" });
+      }
+      await storage.updateUserCurrency(req.user.id, -parsed.data.amount);
     }
 
-    await storage.updateUserCurrency(req.user.id, -parsed.data.amount);
     const bet = await storage.createBet({
       ...parsed.data,
       userId: req.user.id,

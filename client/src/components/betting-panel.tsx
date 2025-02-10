@@ -14,7 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Bracket } from "@shared/schema";
 
 interface BettingPanelProps {
-  bracket: Bracket;
+  bracket: Bracket & { userBracketBalance?: number };
   userCurrency: number;
 }
 
@@ -32,7 +32,11 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      if (bracket.useIndependentCredits) {
+        queryClient.invalidateQueries({ queryKey: [`/api/brackets/${bracket.id}`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      }
       toast({
         title: "Bet placed successfully",
         description: `You bet ${amount} credits on ${selected}`,
@@ -59,11 +63,16 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
     );
   }
 
+  const availableCredits = bracket.useIndependentCredits
+    ? bracket.userBracketBalance ?? 0
+    : userCurrency;
+
   return (
     <div className="p-4 border rounded-lg space-y-4">
       <h3 className="font-semibold">Place Your Bet</h3>
       <p className="text-sm text-muted-foreground">
-        Available credits: {userCurrency}
+        Available credits: {availableCredits}
+        {bracket.useIndependentCredits && " (bracket credits)"}
       </p>
 
       <div className="space-y-2">
@@ -73,7 +82,7 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           min={1}
-          max={userCurrency}
+          max={availableCredits}
         />
 
         <Select value={selected} onValueChange={setSelected}>

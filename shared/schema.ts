@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,6 +7,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   virtualCurrency: integer("virtual_currency").notNull().default(1000),
+  lastDailyBonus: timestamp("last_daily_bonus"),
 });
 
 export const brackets = pgTable("brackets", {
@@ -18,6 +19,15 @@ export const brackets = pgTable("brackets", {
   structure: jsonb("structure").notNull(), // Array of matches
   status: text("status").notNull().default("pending"), // pending, active, completed
   winningBetId: integer("winning_bet_id"),
+  startingCredits: integer("starting_credits"), // Optional starting credits for private brackets
+  useIndependentCredits: boolean("use_independent_credits").default(false),
+});
+
+export const bracketBalances = pgTable("bracket_balances", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  bracketId: integer("bracket_id").notNull(),
+  balance: integer("balance").notNull(),
 });
 
 export const matches = pgTable("matches", {
@@ -48,13 +58,17 @@ export const insertBracketSchema = createInsertSchema(brackets).pick({
   isPublic: true,
   accessCode: true,
   structure: true,
+  startingCredits: true,
+  useIndependentCredits: true,
 });
 
+export const insertBracketBalanceSchema = createInsertSchema(bracketBalances);
 export const insertMatchSchema = createInsertSchema(matches);
 export const insertBetSchema = createInsertSchema(bets);
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Bracket = typeof brackets.$inferSelect;
+export type BracketBalance = typeof bracketBalances.$inferSelect;
 export type Match = typeof matches.$inferSelect;
 export type Bet = typeof bets.$inferSelect;

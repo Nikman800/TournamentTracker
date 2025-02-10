@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,13 +9,37 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Plus, Trophy } from "lucide-react";
+import { Plus, Trophy, CoinsIcon } from "lucide-react";
 import type { Bracket } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { data: brackets } = useQuery<Bracket[]>({
     queryKey: ["/api/brackets"],
+  });
+
+  const claimBonusMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/claim-daily-bonus");
+      return res.json();
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(["/api/user"], user);
+      toast({
+        title: "Daily Bonus Claimed!",
+        description: "You received 100 credits.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Couldn't claim bonus",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   if (!brackets) return null;
@@ -25,10 +49,21 @@ export default function HomePage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold mb-2">Tournament Brackets</h1>
-          <p className="text-muted-foreground">
-            Welcome back, {user?.username}! You have {user?.virtualCurrency}{" "}
-            credits.
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-muted-foreground">
+              Welcome back, {user?.username}! You have {user?.virtualCurrency}{" "}
+              credits.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => claimBonusMutation.mutate()}
+              disabled={claimBonusMutation.isPending}
+            >
+              <CoinsIcon className="mr-2 h-4 w-4" />
+              Claim Daily Bonus
+            </Button>
+          </div>
         </div>
         <Button asChild>
           <Link href="/brackets/new">
@@ -59,6 +94,8 @@ export default function HomePage() {
                 {!bracket.isPublic && (
                   <p className="text-sm text-muted-foreground mt-2">
                     Private bracket
+                    {bracket.useIndependentCredits &&
+                      ` • ${bracket.startingCredits} starting credits`}
                   </p>
                 )}
               </CardContent>
