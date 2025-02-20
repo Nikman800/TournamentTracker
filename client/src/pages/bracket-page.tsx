@@ -22,12 +22,23 @@ export default function BracketPage() {
   const { user } = useAuth();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
+  console.log("Rendering BracketPage with id:", id);
+  
+  const { data: bracket, isLoading: bracketLoading, error } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
+    queryFn: async () => {
+      console.log("Fetching bracket data for id:", id);
+      const res = await apiRequest("GET", `/api/brackets/${id}`);
+      const data = await res.json();
+      console.log("Received bracket data:", data);
+      return data;
+    },
     enabled: !!id,
-    staleTime: 0, // Always fetch fresh data
-    retry: 1, // Only retry once to avoid infinite loops
+    staleTime: 0,
+    retry: 1,
   });
+
+  console.log("Query state:", { isLoading: bracketLoading, error, bracket });
 
   const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
@@ -109,7 +120,7 @@ export default function BracketPage() {
           <div className="p-4 border rounded-lg">
             <h3 className="font-semibold mb-4">Current Bets</h3>
             <div className="space-y-2">
-              {bets.map((bet) => (
+              {bets?.map((bet) => (
                 <div
                   key={bet.id}
                   className="flex justify-between text-sm p-2 bg-muted rounded"

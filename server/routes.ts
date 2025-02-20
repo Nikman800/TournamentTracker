@@ -14,7 +14,8 @@ export function registerRoutes(app: Express): Server {
       const user = await storage.claimDailyBonus(req.user.id);
       res.json(user);
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(400).json({ message });
     }
   });
 
@@ -24,6 +25,7 @@ export function registerRoutes(app: Express): Server {
 
     const parsed = insertBracketSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.log("Invalid bracket data:", parsed.error);
       return res.status(400).json(parsed.error);
     }
 
@@ -32,9 +34,13 @@ export function registerRoutes(app: Express): Server {
       creatorId: req.user.id,
       status: "pending",
       winningBetId: null,
+      isPublic: parsed.data.isPublic ?? true,
+      startingCredits: parsed.data.startingCredits ?? null,
+      accessCode: parsed.data.accessCode ?? null,
+      useIndependentCredits: parsed.data.useIndependentCredits ?? null,
     });
 
-    // Return the full bracket object
+    console.log("Created bracket with full details:", JSON.stringify(bracket, null, 2));
     res.status(201).json(bracket);
   });
 
@@ -46,18 +52,23 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/brackets/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-
+    
     const bracketId = parseInt(req.params.id);
+    console.log(`Attempting to retrieve bracket ${bracketId}`);
+    
     if (isNaN(bracketId)) {
+      console.log("Invalid bracket ID:", req.params.id);
       return res.status(400).json({ message: "Invalid bracket ID" });
     }
 
     const bracket = await storage.getBracket(bracketId);
+    console.log("Retrieved bracket:", JSON.stringify(bracket, null, 2));
+    
     if (!bracket) {
+      console.log(`Bracket ${bracketId} not found in storage`);
       return res.status(404).json({ message: "Bracket not found" });
     }
 
-    // If the bracket uses independent credits, include the user's bracket balance
     if (bracket.useIndependentCredits) {
       const balance = await storage.getBracketBalance(req.user.id, bracket.id);
       return res.json({ ...bracket, userBracketBalance: balance });

@@ -1,11 +1,10 @@
-import { IStorage } from "./storage";
 import { User, InsertUser, Bracket, Match, Bet, BracketBalance } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
 
 const MemoryStore = createMemoryStore(session);
 
-export class MemStorage implements IStorage {
+export class MemStorage {
   private users: Map<number, User>;
   private brackets: Map<number, Bracket>;
   private matches: Map<number, Match>;
@@ -97,9 +96,21 @@ export class MemStorage implements IStorage {
   }
 
   async getBracket(id: number): Promise<Bracket | undefined> {
+    console.log("Storage state:", {
+      bracketsSize: this.brackets.size,
+      availableIds: Array.from(this.brackets.keys()),
+      requestedId: id
+    });
+    
     const bracket = this.brackets.get(id);
     if (!bracket) {
-      console.log(`Bracket ${id} not found. Available brackets:`, Array.from(this.brackets.keys()));
+      console.log(`Bracket ${id} not found. Available brackets:`, 
+        Array.from(this.brackets.entries()).map(([id, b]) => ({
+          id,
+          name: b.name,
+          creatorId: b.creatorId
+        }))
+      );
     }
     return bracket;
   }

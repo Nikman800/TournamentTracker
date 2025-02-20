@@ -77,7 +77,10 @@ export default function BracketCreate() {
       // Prefetch and cache the new bracket data
       await queryClient.prefetchQuery({
         queryKey: [`/api/brackets/${bracket.id}`],
-        queryFn: async () => bracket,
+        queryFn: async () => {
+          const res = await apiRequest("GET", `/api/brackets/${bracket.id}`);
+          return res.json();
+        },
       });
 
       // Update the brackets list in the cache
