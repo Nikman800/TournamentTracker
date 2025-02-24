@@ -36,7 +36,6 @@ export function registerRoutes(app: Express): Server {
       winningBetId: null,
       isPublic: parsed.data.isPublic ?? true,
       startingCredits: parsed.data.startingCredits ?? null,
-      accessCode: parsed.data.accessCode ?? null,
       useIndependentCredits: parsed.data.useIndependentCredits ?? null,
     });
 
@@ -52,10 +51,10 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/brackets/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
+
     const bracketId = parseInt(req.params.id);
     console.log(`Attempting to retrieve bracket ${bracketId}`);
-    
+
     if (isNaN(bracketId)) {
       console.log("Invalid bracket ID:", req.params.id);
       return res.status(400).json({ message: "Invalid bracket ID" });
@@ -63,7 +62,7 @@ export function registerRoutes(app: Express): Server {
 
     const bracket = await storage.getBracket(bracketId);
     console.log("Retrieved bracket:", JSON.stringify(bracket, null, 2));
-    
+
     if (!bracket) {
       console.log(`Bracket ${bracketId} not found in storage`);
       return res.status(404).json({ message: "Bracket not found" });
@@ -77,11 +76,52 @@ export function registerRoutes(app: Express): Server {
     res.json(bracket);
   });
 
+  app.patch("/api/brackets/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const bracketId = parseInt(req.params.id);
+    console.log(`Attempting to update bracket ${bracketId}`, req.body);
+
+    const bracket = await storage.getBracket(bracketId);
+    if (!bracket) {
+      console.log(`Bracket ${bracketId} not found for update`);
+      return res.status(404).json({ message: "Bracket not found" });
+    }
+
+    if (bracket.creatorId !== req.user.id) {
+      console.log(`User ${req.user.id} attempted to update bracket ${bracketId} but is not the creator`);
+      return res.status(403).json({ message: "Only the creator can update the bracket" });
+    }
+
+    // Validate status transition
+    if (req.body.status) {
+      const currentStatus = bracket.status;
+      const newStatus = req.body.status;
+      console.log(`Attempting status transition from ${currentStatus} to ${newStatus}`);
+
+      const validTransitions = {
+        pending: ["waiting"],
+        waiting: ["active"],
+        active: ["completed"],
+      };
+
+      if (!validTransitions[currentStatus]?.includes(newStatus)) {
+        const error = `Invalid status transition from ${currentStatus} to ${newStatus}`;
+        console.log(error);
+        return res.status(400).json({ message: error });
+      }
+    }
+
+    const updated = await storage.updateBracket(bracket.id, req.body);
+    console.log("Updated bracket:", JSON.stringify(updated, null, 2));
+    res.json(updated);
+  });
+
   app.post("/api/brackets/:id/join", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const bracket = await storage.getBracket(parseInt(req.params.id));
-    if (!bracket) return res.sendStatus(404);
+    if (!bracket) return res.status(404).json({ message: "Bracket not found" });
 
     // For private brackets, verify access code
     if (!bracket.isPublic && bracket.accessCode !== req.body.accessCode) {
@@ -100,17 +140,6 @@ export function registerRoutes(app: Express): Server {
     res.sendStatus(200);
   });
 
-  app.patch("/api/brackets/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const bracket = await storage.getBracket(parseInt(req.params.id));
-    if (!bracket) return res.sendStatus(404);
-    if (bracket.creatorId !== req.user.id) return res.sendStatus(403);
-
-    const updated = await storage.updateBracket(bracket.id, req.body);
-    res.json(updated);
-  });
-
-  // Bets
   app.post("/api/brackets/:id/bets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -120,7 +149,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     const bracket = await storage.getBracket(parseInt(req.params.id));
-    if (!bracket) return res.sendStatus(404);
+    if (!bracket) return res.status(404).json({ message: "Bracket not found" });
     if (bracket.status !== "active") {
       return res.status(400).json({ message: "Bracket not active" });
     }

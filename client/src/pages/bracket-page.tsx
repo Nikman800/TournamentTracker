@@ -16,14 +16,16 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function BracketPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
   console.log("Rendering BracketPage with id:", id);
-  
+
   const { data: bracket, isLoading: bracketLoading, error } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
     queryFn: async () => {
@@ -42,7 +44,7 @@ export default function BracketPage() {
 
   const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
-    enabled: !!id && !!bracket,
+    enabled: !!id && !!bracket && bracket.status === "active",
     staleTime: 0,
   });
 
@@ -61,6 +63,32 @@ export default function BracketPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       setSelectedMatch(null);
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      console.log(`Updating bracket ${id} status to:`, status);
+      const res = await apiRequest("PATCH", `/api/brackets/${id}`, { status });
+      const updatedBracket = await res.json();
+      console.log("Bracket updated:", updatedBracket);
+      return updatedBracket;
+    },
+    onSuccess: (updatedBracket) => {
+      console.log("Status update successful:", updatedBracket);
+      queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
+      toast({
+        title: "Tournament Status Updated",
+        description: `Tournament is now ${updatedBracket.status}`,
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Status update failed:", error);
+      toast({
+        title: "Failed to Update Status",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -95,13 +123,23 @@ export default function BracketPage() {
         </div>
         {isCreator && bracket.status === "pending" && (
           <Button
-            onClick={async () => {
-              await apiRequest("PATCH", `/api/brackets/${id}`, {
-                status: "active",
-              });
-              queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
-            }}
+            onClick={() => updateStatusMutation.mutate("waiting")}
+            disabled={updateStatusMutation.isPending}
           >
+            {updateStatusMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Open Bracket
+          </Button>
+        )}
+        {isCreator && bracket.status === "waiting" && (
+          <Button
+            onClick={() => updateStatusMutation.mutate("active")}
+            disabled={updateStatusMutation.isPending}
+          >
+            {updateStatusMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
             Start Tournament
           </Button>
         )}
@@ -115,22 +153,41 @@ export default function BracketPage() {
         />
 
         <div className="space-y-8">
-          <BettingPanel bracket={bracket} userCurrency={user?.virtualCurrency!} />
-
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-semibold mb-4">Current Bets</h3>
-            <div className="space-y-2">
-              {bets?.map((bet) => (
-                <div
-                  key={bet.id}
-                  className="flex justify-between text-sm p-2 bg-muted rounded"
-                >
-                  <span>{bet.selectedWinner}</span>
-                  <span>{bet.amount} credits</span>
-                </div>
-              ))}
+          {bracket.status === "waiting" ? (
+            <div className="p-4 border rounded-lg">
+              <h3 className="font-semibold mb-4">Waiting Room</h3>
+              <p className="text-sm text-muted-foreground">
+                Waiting for the tournament to begin...
+              </p>
             </div>
-          </div>
+          ) : bracket.status === "active" ? (
+            <>
+              <BettingPanel bracket={bracket} userCurrency={user?.virtualCurrency!} />
+              <div className="p-4 border rounded-lg">
+                <h3 className="font-semibold mb-4">Current Bets</h3>
+                <div className="space-y-2">
+                  {bets?.map((bet) => (
+                    <div
+                      key={bet.id}
+                      className="flex justify-between text-sm p-2 bg-muted rounded"
+                    >
+                      <span>{bet.selectedWinner}</span>
+                      <span>{bet.amount} credits</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-4 border rounded-lg">
+              <h3 className="font-semibold mb-4">Tournament Status</h3>
+              <p className="text-sm text-muted-foreground">
+                {bracket.status === "pending"
+                  ? "Waiting for the admin to open the bracket..."
+                  : "Tournament has ended"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

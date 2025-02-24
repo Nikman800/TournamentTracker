@@ -58,6 +58,7 @@ export default function BracketCreate() {
         name: data.name,
         isPublic: data.isPublic,
         structure: JSON.stringify(structure),
+        status: "pending", // Explicitly set initial status
         ...(data.isPublic ? {} : {
           accessCode: data.accessCode,
           startingCredits: data.useIndependentCredits ? data.startingCredits : null,

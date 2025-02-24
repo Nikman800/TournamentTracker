@@ -17,7 +17,7 @@ export const brackets = pgTable("brackets", {
   isPublic: boolean("is_public").notNull().default(true),
   accessCode: text("access_code"),
   structure: jsonb("structure").notNull(), // Array of matches
-  status: text("status").notNull().default("pending"), // pending, active, completed
+  status: text("status").notNull().default("pending"), // pending, waiting, active, completed
   winningBetId: integer("winning_bet_id"),
   startingCredits: integer("starting_credits"), // Optional starting credits for private brackets
   useIndependentCredits: boolean("use_independent_credits").default(false),

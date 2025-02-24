@@ -101,7 +101,7 @@ export class MemStorage {
       availableIds: Array.from(this.brackets.keys()),
       requestedId: id
     });
-    
+
     const bracket = this.brackets.get(id);
     if (!bracket) {
       console.log(`Bracket ${id} not found. Available brackets:`, 
@@ -120,9 +120,13 @@ export class MemStorage {
   }
 
   async updateBracket(id: number, updates: Partial<Bracket>): Promise<Bracket> {
+    console.log(`Updating bracket ${id} with:`, updates);
     const bracket = await this.getBracket(id);
     if (!bracket) throw new Error("Bracket not found");
+
     const updated = { ...bracket, ...updates };
+    console.log(`Bracket ${id} updated to:`, updated);
+
     this.brackets.set(id, updated);
     return updated;
   }
