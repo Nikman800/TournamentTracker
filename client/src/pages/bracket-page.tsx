@@ -140,7 +140,7 @@ export default function BracketPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       toast({
         title: "Phase Updated",
-        description: `Now in ${updatedBracket.phase} phase${updatedBracket.phase === "betting" ? ` • Round ${(updatedBracket.currentRound || 0) + 1}` : ""}`,
+        description: `Now in ${updatedBracket.phase} phase${updatedBracket.phase === "betting" ? ` • Match ${(updatedBracket.currentRound || 0) + 1}` : ""}`,
       });
     },
     onError: (error: Error) => {
@@ -182,7 +182,7 @@ export default function BracketPage() {
             {bracket.status === "active" && (
               <>
                 {" "}
-                • Round {bracket.currentRound + 1} • {bracket.phase} phase
+                • Match {getCurrentMatch(bracket)?.matchNumber} • {bracket.phase} phase
               </>
             )}
           </p>
@@ -322,6 +322,11 @@ export default function BracketPage() {
                 <BettingPanel
                   bracket={bracket}
                   userCurrency={user?.virtualCurrency!}
+                  currentBet={bets?.find(
+                    (bet) =>
+                      bet.userId === user?.id &&
+                      bet.round === bracket.currentRound
+                  )}
                 />
               )}
               <div className="p-4 border rounded-lg">

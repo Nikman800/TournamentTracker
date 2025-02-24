@@ -124,13 +124,46 @@ export class MemStorage {
     const bracket = await this.getBracket(id);
     if (!bracket) throw new Error("Bracket not found");
 
-    // If there's a structure update, process winners for the next round
+    // If there's a structure update, process winners and handle bets
     if (updates.structure) {
       const structure = JSON.parse(updates.structure as string) as Match[];
       const currentRound = bracket.currentRound || 0;
 
-      // Check if all matches in current round have winners
+      // Check if any match in current round got a new winner
       const currentRoundMatches = structure.filter(m => m.round === currentRound);
+      const previousStructure = JSON.parse(bracket.structure as string) as Match[];
+
+      for (const match of currentRoundMatches) {
+        const previousMatch = previousStructure.find(
+          m => m.round === match.round && m.position === match.position
+        );
+
+        // If this match just got a winner, process bets
+        if (match.winner && !previousMatch?.winner) {
+          // Get all bets for this match
+          const matchBets = await this.getBracketBets(bracket.id);
+          const roundBets = matchBets.filter(bet => bet.round === currentRound);
+
+          if (roundBets.length > 0) {
+            // Calculate total pool and winning pool
+            const totalPool = roundBets.reduce((sum, bet) => sum + bet.amount, 0);
+            const winningBets = roundBets.filter(bet => bet.selectedWinner === match.winner);
+            const winningPool = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
+
+            // Distribute winnings to correct bets
+            for (const bet of winningBets) {
+              const winningAmount = Math.floor((bet.amount / winningPool) * totalPool);
+              if (bracket.useIndependentCredits) {
+                await this.updateBracketBalance(bet.userId, bracket.id, winningAmount);
+              } else {
+                await this.updateUserCurrency(bet.userId, winningAmount);
+              }
+            }
+          }
+        }
+      }
+
+      // Check if all matches in current round have winners
       const allMatchesComplete = currentRoundMatches.every(m => m.winner);
 
       if (allMatchesComplete) {

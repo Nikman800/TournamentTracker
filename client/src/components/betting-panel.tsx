@@ -11,16 +11,17 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Bracket, Match } from "@shared/schema";
+import type { Bracket, Match, Bet } from "@shared/schema";
 
 interface BettingPanelProps {
   bracket: Bracket & { userBracketBalance?: number };
   userCurrency: number;
+  currentBet?: Bet;
 }
 
-export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
-  const [amount, setAmount] = useState("");
-  const [selected, setSelected] = useState("");
+export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanelProps) {
+  const [amount, setAmount] = useState(currentBet?.amount?.toString() || "");
+  const [selected, setSelected] = useState(currentBet?.selectedWinner || "");
   const { toast } = useToast();
 
   const placeBetMutation = useMutation({
@@ -91,11 +92,21 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
 
   return (
     <div className="p-4 border rounded-lg space-y-4">
-      <h3 className="font-semibold">Place Your Bet</h3>
+      <h3 className="font-semibold">
+        {currentBet ? "Your Current Bet" : "Place Your Bet"}
+      </h3>
       <p className="text-sm text-muted-foreground">
         Available credits: {availableCredits}
         {bracket.useIndependentCredits && " (bracket credits)"}
       </p>
+
+      {currentBet && (
+        <div className="p-4 bg-muted rounded-lg mb-4">
+          <p>
+            You bet {currentBet.amount} credits on {currentBet.selectedWinner}
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Input
@@ -130,7 +141,7 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
           disabled={!amount || !selected || placeBetMutation.isPending}
           onClick={() => placeBetMutation.mutate()}
         >
-          Place Bet
+          {currentBet ? "Update Bet" : "Place Bet"}
         </Button>
       </div>
     </div>
