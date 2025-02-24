@@ -25,12 +25,12 @@ export default function BracketPage() {
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // Add current round display
-  function getCurrentRoundMatches(bracket: Bracket): Match[] {
+  // Update the getCurrentMatch function to find the first unresolved match in the current round
+  function getCurrentMatch(bracket: Bracket): Match | null {
     const structure = JSON.parse(bracket.structure as string) as Match[];
-    return structure.filter(
-      (match) => match.round === bracket.currentRound
-    );
+    return structure.find(
+      (match) => match.round === bracket.currentRound && !match.winner
+    ) || null;
   }
 
   const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
@@ -218,34 +218,80 @@ export default function BracketPage() {
         )}
       </div>
 
-      {/* Add current round display */}
+      {/* Update the current round display */}
       {bracket.status === "active" && (
         <div className="mb-8 p-4 border rounded-lg">
-          <h2 className="text-lg font-semibold mb-4">Current Round {bracket.currentRound + 1}</h2>
-          <div className="grid gap-4">
-            {getCurrentRoundMatches(bracket).map((match) => (
-              <div key={`${match.round}-${match.position}`} className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold mb-4">
+            Round {bracket.currentRound + 1} - Current Match
+          </h2>
+          {(() => {
+            const currentMatch = getCurrentMatch(bracket);
+            if (!currentMatch) {
+              return (
+                <p className="text-center text-muted-foreground">
+                  All matches in this round are complete
+                </p>
+              );
+            }
+            return (
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div className="flex-1 text-center">
-                  <span className={match.winner === match.player1 ? "text-primary font-bold" : ""}>
-                    {match.player1}
+                  <span
+                    className={
+                      currentMatch.winner === currentMatch.player1
+                        ? "text-primary font-bold"
+                        : ""
+                    }
+                  >
+                    {currentMatch.player1}
                   </span>
                 </div>
-                <div className="mx-4">vs</div>
+                <div className="mx-4 font-bold">vs</div>
                 <div className="flex-1 text-center">
-                  <span className={match.winner === match.player2 ? "text-primary font-bold" : ""}>
-                    {match.player2}
+                  <span
+                    className={
+                      currentMatch.winner === currentMatch.player2
+                        ? "text-primary font-bold"
+                        : ""
+                    }
+                  >
+                    {currentMatch.player2}
                   </span>
                 </div>
+                {isCreator &&
+                  bracket.phase === "game" &&
+                  !currentMatch.winner && (
+                    <div className="ml-4">
+                      <Button onClick={() => setSelectedMatch(currentMatch)}>
+                        Select Winner
+                      </Button>
+                    </div>
+                  )}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       )}
 
       <div className="grid md:grid-cols-[1fr,300px] gap-8">
         <BracketViewer
           matches={JSON.parse(bracket.structure as string)}
-          onMatchClick={(bracket.status === "active" && bracket.phase === "game" && isCreator) ? setSelectedMatch : undefined}
+          onMatchClick={
+            bracket.status === "active" &&
+            bracket.phase === "game" &&
+            isCreator
+              ? (match) => {
+                  const currentMatch = getCurrentMatch(bracket);
+                  if (
+                    currentMatch &&
+                    match.round === currentMatch.round &&
+                    match.position === currentMatch.position
+                  ) {
+                    setSelectedMatch(match);
+                  }
+                }
+              : undefined
+          }
           isCreator={isCreator}
         />
 

@@ -25,11 +25,14 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
 
   const placeBetMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/brackets/${bracket.id}/bets`, {
+      const betData = {
         amount: parseInt(amount),
         selectedWinner: selected,
         round: bracket.currentRound,
-      });
+        bracketId: bracket.id // Explicitly include bracketId
+      };
+      console.log("Placing bet with data:", betData);
+      const res = await apiRequest("POST", `/api/brackets/${bracket.id}/bets`, betData);
       return res.json();
     },
     onSuccess: () => {
@@ -70,11 +73,21 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
     ? bracket.userBracketBalance ?? 0
     : userCurrency;
 
-  // Get current round matches
+  // Get current matches for the round
   const structure = JSON.parse(bracket.structure as string) as Match[];
-  const currentRoundMatches = structure.filter(
-    (match) => match.round === bracket.currentRound
+  const currentMatch = structure.find(
+    (match) => match.round === bracket.currentRound && !match.winner
   );
+
+  if (!currentMatch) {
+    return (
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-center text-muted-foreground">
+          No active matches available for betting
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 border rounded-lg space-y-4">
@@ -99,20 +112,16 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
             <SelectValue placeholder="Select winner" />
           </SelectTrigger>
           <SelectContent>
-            {currentRoundMatches.map((match) => (
-              <div key={`${match.round}-${match.position}`}>
-                {match.player1 && (
-                  <SelectItem value={match.player1}>
-                    {match.player1}
-                  </SelectItem>
-                )}
-                {match.player2 && (
-                  <SelectItem value={match.player2}>
-                    {match.player2}
-                  </SelectItem>
-                )}
-              </div>
-            ))}
+            {currentMatch.player1 && (
+              <SelectItem value={currentMatch.player1}>
+                {currentMatch.player1}
+              </SelectItem>
+            )}
+            {currentMatch.player2 && (
+              <SelectItem value={currentMatch.player2}>
+                {currentMatch.player2}
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
 

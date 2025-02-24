@@ -159,12 +159,18 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/brackets/:id/bets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    const parsed = insertBetSchema.safeParse(req.body);
+    const bracketId = parseInt(req.params.id);
+    const parsed = insertBetSchema.safeParse({
+      ...req.body,
+      userId: req.user.id,
+      bracketId
+    });
+
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
     }
 
-    const bracket = await storage.getBracket(parseInt(req.params.id));
+    const bracket = await storage.getBracket(bracketId);
     if (!bracket) return res.status(404).json({ message: "Bracket not found" });
     if (bracket.status !== "active") {
       return res.status(400).json({ message: "Bracket not active" });
@@ -189,12 +195,7 @@ export function registerRoutes(app: Express): Server {
       await storage.updateUserCurrency(req.user.id, -parsed.data.amount);
     }
 
-    const bet = await storage.createBet({
-      ...parsed.data,
-      userId: req.user.id,
-      bracketId: bracket.id,
-    });
-
+    const bet = await storage.createBet(parsed.data);
     res.status(201).json(bet);
   });
 
