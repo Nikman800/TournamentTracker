@@ -33,6 +33,8 @@ export function registerRoutes(app: Express): Server {
       ...parsed.data,
       creatorId: req.user.id,
       status: "pending",
+      phase: null,
+      currentRound: null,
       winningBetId: null,
       isPublic: parsed.data.isPublic ?? true,
       startingCredits: parsed.data.startingCredits ?? null,
@@ -110,6 +112,12 @@ export function registerRoutes(app: Express): Server {
         console.log(error);
         return res.status(400).json({ message: error });
       }
+
+      // When transitioning to active, initialize phase and round
+      if (newStatus === "active") {
+        req.body.phase = "betting";
+        req.body.currentRound = 0;
+      }
     }
 
     const updated = await storage.updateBracket(bracket.id, req.body);
@@ -152,6 +160,11 @@ export function registerRoutes(app: Express): Server {
     if (!bracket) return res.status(404).json({ message: "Bracket not found" });
     if (bracket.status !== "active") {
       return res.status(400).json({ message: "Bracket not active" });
+    }
+
+    // Check if this is the admin and if they're allowed to bet
+    if (bracket.creatorId === req.user.id && !bracket.adminCanBet) {
+      return res.status(403).json({ message: "Admin is not allowed to bet in this bracket" });
     }
 
     // Handle betting based on whether the bracket uses independent credits

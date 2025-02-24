@@ -23,6 +23,7 @@ export const brackets = pgTable("brackets", {
   winningBetId: integer("winning_bet_id"),
   startingCredits: integer("starting_credits"), // Optional starting credits for private brackets
   useIndependentCredits: boolean("use_independent_credits").default(false),
+  adminCanBet: boolean("admin_can_bet").default(false),
 });
 
 export const bracketBalances = pgTable("bracket_balances", {
@@ -63,6 +64,7 @@ export const insertBracketSchema = createInsertSchema(brackets).pick({
   structure: true,
   startingCredits: true,
   useIndependentCredits: true,
+  adminCanBet: true,
 });
 
 export const insertBracketBalanceSchema = createInsertSchema(bracketBalances);

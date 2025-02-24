@@ -27,6 +27,7 @@ const createBracketSchema = z.object({
   accessCode: z.string().optional(),
   startingCredits: z.number().min(1).optional(),
   useIndependentCredits: z.boolean().optional(),
+  adminCanBet: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof createBracketSchema>;
@@ -44,16 +45,15 @@ export default function BracketCreate() {
       players: "",
       startingCredits: 1000,
       useIndependentCredits: false,
+      adminCanBet: false,
     },
   });
 
   const createBracketMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      // Convert players string to array and generate bracket structure
       const players = data.players.split(",").map((p) => p.trim()).filter(Boolean);
       const structure = generateBracketStructure(players);
 
-      // Only include necessary fields based on whether it's public or private
       const bracketData = {
         name: data.name,
         isPublic: data.isPublic,
@@ -63,6 +63,7 @@ export default function BracketCreate() {
           accessCode: data.accessCode,
           startingCredits: data.useIndependentCredits ? data.startingCredits : null,
           useIndependentCredits: data.useIndependentCredits,
+          adminCanBet: data.useIndependentCredits ? data.adminCanBet : false,
         }),
       };
 
@@ -75,7 +76,6 @@ export default function BracketCreate() {
     onSuccess: async (bracket) => {
       console.log("Successfully created bracket:", bracket);
 
-      // Prefetch and cache the new bracket data
       await queryClient.prefetchQuery({
         queryKey: [`/api/brackets/${bracket.id}`],
         queryFn: async () => {
@@ -84,7 +84,6 @@ export default function BracketCreate() {
         },
       });
 
-      // Update the brackets list in the cache
       queryClient.invalidateQueries({ queryKey: ["/api/brackets"] });
 
       toast({
@@ -92,7 +91,6 @@ export default function BracketCreate() {
         description: "You can now start managing your tournament.",
       });
 
-      // Navigate to the new bracket page
       setLocation(`/brackets/${bracket.id}`);
     },
     onError: (error: Error) => {
@@ -121,10 +119,7 @@ export default function BracketCreate() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-6"
-            >
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="name"
@@ -225,28 +220,50 @@ export default function BracketCreate() {
                   />
 
                   {form.watch("useIndependentCredits") && (
-                    <FormField
-                      control={form.control}
-                      name="startingCredits"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Starting Credits</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="Enter starting credits amount"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              value={field.value || ""}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Amount of credits each player starts with
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="startingCredits"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Starting Credits</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="Enter starting credits amount"
+                                {...field}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                value={field.value || ""}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Amount of credits each player starts with
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="adminCanBet"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel>Allow Admin Betting</FormLabel>
+                              <FormDescription>
+                                Enable the tournament creator to place bets using bracket credits
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value || false}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </>
                   )}
                 </>
               )}
@@ -267,7 +284,6 @@ export default function BracketCreate() {
 }
 
 function generateBracketStructure(players: string[]) {
-  // Ensure number of players is a power of 2 by adding byes
   const totalPlayers = Math.pow(2, Math.ceil(Math.log2(players.length)));
   const filledPlayers = [
     ...players,
@@ -278,7 +294,6 @@ function generateBracketStructure(players: string[]) {
   let round = 0;
   let position = 0;
 
-  // Generate first round matches
   for (let i = 0; i < filledPlayers.length; i += 2) {
     matches.push({
       round,
@@ -289,7 +304,6 @@ function generateBracketStructure(players: string[]) {
     });
   }
 
-  // Generate subsequent empty matches
   const totalRounds = Math.log2(totalPlayers);
   for (let r = 1; r < totalRounds; r++) {
     position = 0;

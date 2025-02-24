@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,14 @@ export default function BracketPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+
+  // In the BracketPage component, add helper function to get current round matches
+  function getCurrentRoundMatches(bracket: Bracket): Match[] {
+    const structure = JSON.parse(bracket.structure as string) as Match[];
+    return structure.filter(
+      (match) => match.round === bracket.currentRound
+    );
+  }
 
   const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
@@ -162,6 +171,7 @@ export default function BracketPage() {
             Start Tournament
           </Button>
         )}
+        {/* Update the phase transition button section */}
         {isCreator && bracket.status === "active" && (
           <div className="space-x-2">
             {bracket.phase === "betting" ? (
@@ -183,6 +193,30 @@ export default function BracketPage() {
         )}
       </div>
 
+      {/* Add current round display */}
+      {bracket.status === "active" && (
+        <div className="mb-8 p-4 border rounded-lg">
+          <h2 className="text-lg font-semibold mb-4">Current Round {bracket.currentRound + 1}</h2>
+          <div className="grid gap-4">
+            {getCurrentRoundMatches(bracket).map((match) => (
+              <div key={`${match.round}-${match.position}`} className="flex items-center justify-between">
+                <div className="flex-1 text-center">
+                  <span className={match.winner === match.player1 ? "text-primary font-bold" : ""}>
+                    {match.player1}
+                  </span>
+                </div>
+                <div className="mx-4">vs</div>
+                <div className="flex-1 text-center">
+                  <span className={match.winner === match.player2 ? "text-primary font-bold" : ""}>
+                    {match.player2}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid md:grid-cols-[1fr,300px] gap-8">
         <BracketViewer
           matches={JSON.parse(bracket.structure as string)}
@@ -201,9 +235,9 @@ export default function BracketPage() {
           ) : bracket.status === "active" ? (
             <>
               {bracket.phase === "betting" && (
-                <BettingPanel 
-                  bracket={bracket} 
-                  userCurrency={user?.virtualCurrency!} 
+                <BettingPanel
+                  bracket={bracket}
+                  userCurrency={user?.virtualCurrency!}
                 />
               )}
               <div className="p-4 border rounded-lg">
@@ -234,21 +268,28 @@ export default function BracketPage() {
         </div>
       </div>
 
+      {/* Add dialog for winner selection */}
       <Dialog open={!!selectedMatch} onOpenChange={() => setSelectedMatch(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Select Winner</DialogTitle>
+            <DialogDescription>
+              Choose the winner for this match:
+            </DialogDescription>
           </DialogHeader>
           <RadioGroup
             onValueChange={(value) => updateMatchMutation.mutate(value)}
+            defaultValue={selectedMatch?.winner || undefined}
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value={selectedMatch?.player1 || ""} />
-              <Label>{selectedMatch?.player1}</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value={selectedMatch?.player2 || ""} />
-              <Label>{selectedMatch?.player2}</Label>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value={selectedMatch?.player1 || ""} id="player1" />
+                <Label htmlFor="player1">{selectedMatch?.player1}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value={selectedMatch?.player2 || ""} id="player2" />
+                <Label htmlFor="player2">{selectedMatch?.player2}</Label>
+              </div>
             </div>
           </RadioGroup>
         </DialogContent>
