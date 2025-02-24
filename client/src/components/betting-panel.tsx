@@ -100,18 +100,18 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
           </SelectTrigger>
           <SelectContent>
             {currentRoundMatches.map((match) => (
-              <>
+              <div key={`${match.round}-${match.position}`}>
                 {match.player1 && (
-                  <SelectItem key={match.player1} value={match.player1}>
+                  <SelectItem value={match.player1}>
                     {match.player1}
                   </SelectItem>
                 )}
                 {match.player2 && (
-                  <SelectItem key={match.player2} value={match.player2}>
+                  <SelectItem value={match.player2}>
                     {match.player2}
                   </SelectItem>
                 )}
-              </>
+              </div>
             ))}
           </SelectContent>
         </Select>

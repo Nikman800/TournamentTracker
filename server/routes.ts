@@ -70,8 +70,10 @@ export function registerRoutes(app: Express): Server {
       return res.status(404).json({ message: "Bracket not found" });
     }
 
+    // For brackets using independent credits, attach the user's balance
     if (bracket.useIndependentCredits) {
       const balance = await storage.getBracketBalance(req.user.id, bracket.id);
+      console.log(`User ${req.user.id} bracket balance for ${bracket.id}:`, balance);
       return res.json({ ...bracket, userBracketBalance: balance });
     }
 
@@ -118,6 +120,12 @@ export function registerRoutes(app: Express): Server {
         req.body.phase = "betting";
         req.body.currentRound = 0;
       }
+    }
+
+    // When transitioning from game to betting phase, increment round
+    if (bracket.phase === "game" && req.body.phase === "betting") {
+      console.log(`Transitioning from game to betting phase, incrementing round from ${bracket.currentRound}`);
+      req.body.currentRound = (bracket.currentRound || 0) + 1;
     }
 
     const updated = await storage.updateBracket(bracket.id, req.body);

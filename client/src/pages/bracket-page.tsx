@@ -25,7 +25,7 @@ export default function BracketPage() {
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // In the BracketPage component, add helper function to get current round matches
+  // Add current round display
   function getCurrentRoundMatches(bracket: Bracket): Match[] {
     const structure = JSON.parse(bracket.structure as string) as Match[];
     return structure.filter(
@@ -56,18 +56,35 @@ export default function BracketPage() {
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
       if (!bracket || !selectedMatch) return;
+      console.log(`Updating match winner to ${winner}`);
       const structure = JSON.parse(bracket.structure as string) as Match[];
       const updatedStructure = structure.map((match) =>
-        match.id === selectedMatch.id ? { ...match, winner } : match
+        match.round === bracket.currentRound && match.position === selectedMatch.position
+          ? { ...match, winner }
+          : match
       );
 
-      await apiRequest("PATCH", `/api/brackets/${id}`, {
+      const res = await apiRequest("PATCH", `/api/brackets/${id}`, {
         structure: JSON.stringify(updatedStructure),
       });
+      const updatedBracket = await res.json();
+      console.log("Match updated, new bracket state:", updatedBracket);
+      return updatedBracket;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       setSelectedMatch(null);
+      toast({
+        title: "Winner Updated",
+        description: "The match winner has been recorded.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Update Winner",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -106,10 +123,18 @@ export default function BracketPage() {
       return updatedBracket;
     },
     onSuccess: (updatedBracket) => {
+      console.log("Phase update successful:", updatedBracket);
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       toast({
         title: "Phase Updated",
-        description: `Now in ${updatedBracket.phase} phase`,
+        description: `Now in ${updatedBracket.phase} phase${updatedBracket.phase === "betting" ? ` • Round ${(updatedBracket.currentRound || 0) + 1}` : ""}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Update Phase",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
