@@ -130,6 +130,13 @@ export function registerRoutes(app: Express): Server {
 
     const updated = await storage.updateBracket(bracket.id, req.body);
     console.log("Updated bracket:", JSON.stringify(updated, null, 2));
+
+    // Return balance info if it's a private bracket
+    if (updated.useIndependentCredits) {
+      const balance = await storage.getBracketBalance(req.user.id, updated.id);
+      return res.json({ ...updated, userBracketBalance: balance });
+    }
+
     res.json(updated);
   });
 

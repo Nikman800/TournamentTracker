@@ -124,6 +124,34 @@ export class MemStorage {
     const bracket = await this.getBracket(id);
     if (!bracket) throw new Error("Bracket not found");
 
+    // If there's a structure update, process winners for the next round
+    if (updates.structure) {
+      const structure = JSON.parse(updates.structure as string) as Match[];
+      const currentRound = bracket.currentRound || 0;
+
+      // Check if all matches in current round have winners
+      const currentRoundMatches = structure.filter(m => m.round === currentRound);
+      const allMatchesComplete = currentRoundMatches.every(m => m.winner);
+
+      if (allMatchesComplete) {
+        // Update next round's matches with winners
+        for (let i = 0; i < currentRoundMatches.length; i += 2) {
+          const match1 = currentRoundMatches[i];
+          const match2 = currentRoundMatches[i + 1];
+          if (match1?.winner && match2?.winner) {
+            const nextRoundMatch = structure.find(
+              m => m.round === currentRound + 1 && m.position === Math.floor(i/2)
+            );
+            if (nextRoundMatch) {
+              nextRoundMatch.player1 = match1.winner;
+              nextRoundMatch.player2 = match2.winner;
+            }
+          }
+        }
+        updates.structure = JSON.stringify(structure);
+      }
+    }
+
     const updated = { ...bracket, ...updates };
     console.log(`Bracket ${id} updated to:`, updated);
 

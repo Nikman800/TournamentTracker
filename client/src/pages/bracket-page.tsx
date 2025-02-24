@@ -25,12 +25,25 @@ export default function BracketPage() {
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  // Update the getCurrentMatch function to find the first unresolved match in the current round
+  // Update the getCurrentMatch function to find the next unplayed match
   function getCurrentMatch(bracket: Bracket): Match | null {
     const structure = JSON.parse(bracket.structure as string) as Match[];
-    return structure.find(
+
+    // First find the current round's unplayed match
+    const currentMatch = structure.find(
       (match) => match.round === bracket.currentRound && !match.winner
-    ) || null;
+    );
+
+    if (currentMatch) {
+      // Calculate the match number (1-based index)
+      const matchNumber = structure.filter(
+        (m) => m.round <= bracket.currentRound && m.position <= currentMatch.position
+      ).length;
+      currentMatch.matchNumber = matchNumber;
+      return currentMatch;
+    }
+
+    return null;
   }
 
   const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
@@ -222,7 +235,7 @@ export default function BracketPage() {
       {bracket.status === "active" && (
         <div className="mb-8 p-4 border rounded-lg">
           <h2 className="text-lg font-semibold mb-4">
-            Round {bracket.currentRound + 1} - Current Match
+            Match {getCurrentMatch(bracket)?.matchNumber ?? "Complete"}
           </h2>
           {(() => {
             const currentMatch = getCurrentMatch(bracket);
