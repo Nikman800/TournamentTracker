@@ -48,19 +48,46 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
+  // Add graceful shutdown handler
+  function shutdownGracefully() {
+    log('Shutting down gracefully...');
+    server.close(() => {
+      log('Server closed');
+      process.exit(0);
+    });
+
+    // Force shutdown after 5 seconds if server hasn't closed
+    setTimeout(() => {
+      log('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 5000);
+  }
+
+  // Listen for termination signals
+  process.on('SIGTERM', shutdownGracefully);
+  process.on('SIGINT', shutdownGracefully);
+
+  // Start the server with error handling
   const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
-  });
+  function startServer() {
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server running on port ${PORT}`);
+    }).on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        log(`Port ${PORT} is already in use. Retrying in 1 second...`);
+        setTimeout(startServer, 1000);
+      } else {
+        log(`Failed to start server: ${error.message}`);
+        process.exit(1);
+      }
+    });
+  }
+
+  startServer();
 })();
