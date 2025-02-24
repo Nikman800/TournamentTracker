@@ -18,6 +18,8 @@ export const brackets = pgTable("brackets", {
   accessCode: text("access_code"),
   structure: jsonb("structure").notNull(), // Array of matches
   status: text("status").notNull().default("pending"), // pending, waiting, active, completed
+  phase: text("phase").default("betting"), // betting, game
+  currentRound: integer("current_round").default(0),
   winningBetId: integer("winning_bet_id"),
   startingCredits: integer("starting_credits"), // Optional starting credits for private brackets
   useIndependentCredits: boolean("use_independent_credits").default(false),
@@ -46,6 +48,7 @@ export const bets = pgTable("bets", {
   bracketId: integer("bracket_id").notNull(),
   amount: integer("amount").notNull(),
   selectedWinner: text("selected_winner").notNull(),
+  round: integer("round").notNull(), // Track which round the bet was placed in
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({

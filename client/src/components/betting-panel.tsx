@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Bracket } from "@shared/schema";
+import type { Bracket, Match } from "@shared/schema";
 
 interface BettingPanelProps {
   bracket: Bracket & { userBracketBalance?: number };
@@ -28,6 +28,7 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
       const res = await apiRequest("POST", `/api/brackets/${bracket.id}/bets`, {
         amount: parseInt(amount),
         selectedWinner: selected,
+        round: bracket.currentRound,
       });
       return res.json();
     },
@@ -53,11 +54,13 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
     },
   });
 
-  if (bracket.status !== "active") {
+  if (bracket.status !== "active" || bracket.phase !== "betting") {
     return (
       <div className="p-4 bg-muted rounded-lg">
         <p className="text-center text-muted-foreground">
-          Betting is not available at this time
+          {bracket.status !== "active"
+            ? "Betting is not available at this time"
+            : "Betting phase has ended for this round"}
         </p>
       </div>
     );
@@ -66,6 +69,12 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
   const availableCredits = bracket.useIndependentCredits
     ? bracket.userBracketBalance ?? 0
     : userCurrency;
+
+  // Get current round matches
+  const structure = JSON.parse(bracket.structure as string) as Match[];
+  const currentRoundMatches = structure.filter(
+    (match) => match.round === bracket.currentRound
+  );
 
   return (
     <div className="p-4 border rounded-lg space-y-4">
@@ -90,22 +99,20 @@ export function BettingPanel({ bracket, userCurrency }: BettingPanelProps) {
             <SelectValue placeholder="Select winner" />
           </SelectTrigger>
           <SelectContent>
-            {JSON.parse(bracket.structure as string).map(
-              (match: any) =>
-                match.player1 && (
+            {currentRoundMatches.map((match) => (
+              <>
+                {match.player1 && (
                   <SelectItem key={match.player1} value={match.player1}>
                     {match.player1}
                   </SelectItem>
-                ),
-            )}
-            {JSON.parse(bracket.structure as string).map(
-              (match: any) =>
-                match.player2 && (
+                )}
+                {match.player2 && (
                   <SelectItem key={match.player2} value={match.player2}>
                     {match.player2}
                   </SelectItem>
-                ),
-            )}
+                )}
+              </>
+            ))}
           </SelectContent>
         </Select>
 

@@ -24,9 +24,7 @@ export default function BracketPage() {
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  console.log("Rendering BracketPage with id:", id);
-
-  const { data: bracket, isLoading: bracketLoading, error } = useQuery<Bracket>({
+  const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
     queryFn: async () => {
       console.log("Fetching bracket data for id:", id);
@@ -39,8 +37,6 @@ export default function BracketPage() {
     staleTime: 0,
     retry: 1,
   });
-
-  console.log("Query state:", { isLoading: bracketLoading, error, bracket });
 
   const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
@@ -92,6 +88,23 @@ export default function BracketPage() {
     },
   });
 
+  const updatePhaseMutation = useMutation({
+    mutationFn: async (phase: string) => {
+      console.log(`Updating bracket ${id} phase to:`, phase);
+      const res = await apiRequest("PATCH", `/api/brackets/${id}`, { phase });
+      const updatedBracket = await res.json();
+      console.log("Phase updated:", updatedBracket);
+      return updatedBracket;
+    },
+    onSuccess: (updatedBracket) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
+      toast({
+        title: "Phase Updated",
+        description: `Now in ${updatedBracket.phase} phase`,
+      });
+    },
+  });
+
   if (bracketLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -119,6 +132,12 @@ export default function BracketPage() {
           <h1 className="text-4xl font-bold mb-2">{bracket.name}</h1>
           <p className="text-muted-foreground">
             Status: <span className="capitalize">{bracket.status}</span>
+            {bracket.status === "active" && (
+              <>
+                {" "}
+                • Round {bracket.currentRound + 1} • {bracket.phase} phase
+              </>
+            )}
           </p>
         </div>
         {isCreator && bracket.status === "pending" && (
@@ -143,12 +162,31 @@ export default function BracketPage() {
             Start Tournament
           </Button>
         )}
+        {isCreator && bracket.status === "active" && (
+          <div className="space-x-2">
+            {bracket.phase === "betting" ? (
+              <Button
+                onClick={() => updatePhaseMutation.mutate("game")}
+                disabled={updatePhaseMutation.isPending}
+              >
+                End Betting Phase
+              </Button>
+            ) : (
+              <Button
+                onClick={() => updatePhaseMutation.mutate("betting")}
+                disabled={updatePhaseMutation.isPending}
+              >
+                Start Next Round
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-[1fr,300px] gap-8">
         <BracketViewer
           matches={JSON.parse(bracket.structure as string)}
-          onMatchClick={setSelectedMatch}
+          onMatchClick={(bracket.status === "active" && bracket.phase === "game" && isCreator) ? setSelectedMatch : undefined}
           isCreator={isCreator}
         />
 
@@ -162,7 +200,12 @@ export default function BracketPage() {
             </div>
           ) : bracket.status === "active" ? (
             <>
-              <BettingPanel bracket={bracket} userCurrency={user?.virtualCurrency!} />
+              {bracket.phase === "betting" && (
+                <BettingPanel 
+                  bracket={bracket} 
+                  userCurrency={user?.virtualCurrency!} 
+                />
+              )}
               <div className="p-4 border rounded-lg">
                 <h3 className="font-semibold mb-4">Current Bets</h3>
                 <div className="space-y-2">
