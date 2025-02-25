@@ -24,6 +24,7 @@ export default function BracketPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [showWinnerDialog, setShowWinnerDialog] = useState(false);
 
   // Update the getCurrentMatch function to find the next unplayed match
   function getCurrentMatch(bracket: Bracket): Match | null {
@@ -46,25 +47,13 @@ export default function BracketPage() {
     return null;
   }
 
-  const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
-    queryKey: [`/api/brackets/${id}`],
-    queryFn: async () => {
-      console.log("Fetching bracket data for id:", id);
-      const res = await apiRequest("GET", `/api/brackets/${id}`);
-      const data = await res.json();
-      console.log("Received bracket data:", data);
-      return data;
-    },
-    enabled: !!id,
-    staleTime: 0,
-    retry: 1,
-  });
-
-  const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
-    queryKey: [`/api/brackets/${id}/bets`],
-    enabled: !!id && !!bracket && bracket.status === "active",
-    staleTime: 0,
-  });
+  // Add a function to get the last completed match
+  function getLastCompletedMatch(bracket: Bracket): Match | null {
+    const structure = JSON.parse(bracket.structure as string) as Match[];
+    return structure.find(
+      (match) => match.round === bracket.currentRound && match.winner
+    ) || null;
+  }
 
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
@@ -87,6 +76,7 @@ export default function BracketPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       setSelectedMatch(null);
+      setShowWinnerDialog(false);
       toast({
         title: "Winner Updated",
         description: "The match winner has been recorded.",
@@ -153,6 +143,26 @@ export default function BracketPage() {
     },
   });
 
+  const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
+    queryKey: [`/api/brackets/${id}`],
+    queryFn: async () => {
+      console.log("Fetching bracket data for id:", id);
+      const res = await apiRequest("GET", `/api/brackets/${id}`);
+      const data = await res.json();
+      console.log("Received bracket data:", data);
+      return data;
+    },
+    enabled: !!id,
+    staleTime: 0,
+    retry: 1,
+  });
+
+  const { data: bets, isLoading: betsLoading } = useQuery<Bet[]>({
+    queryKey: [`/api/brackets/${id}/bets`],
+    enabled: !!id && !!bracket && bracket.status === "active",
+    staleTime: 0,
+  });
+
   if (bracketLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -183,7 +193,7 @@ export default function BracketPage() {
             {bracket.status === "active" && bracket.phase && (
               <>
                 {" "}
-                • Match {getCurrentMatch(bracket)?.matchNumber} • {bracket.phase} phase
+                • Match {getCurrentMatch(bracket)?.matchNumber || getLastCompletedMatch(bracket)?.matchNumber} • {bracket.phase} phase
               </>
             )}
           </p>
@@ -232,7 +242,8 @@ export default function BracketPage() {
                     });
                     return;
                   }
-                  updatePhaseMutation.mutate("betting");
+                  // Show winner announcement before proceeding
+                  setShowWinnerDialog(true);
                 }}
                 disabled={updatePhaseMutation.isPending}
               >
@@ -247,10 +258,23 @@ export default function BracketPage() {
       {bracket.status === "active" && (
         <div className="mb-8 p-4 border rounded-lg">
           <h2 className="text-lg font-semibold mb-4">
-            Match {getCurrentMatch(bracket)?.matchNumber ?? "Complete"}
+            {bracket.phase === "game" 
+              ? `Match ${getCurrentMatch(bracket)?.matchNumber || getLastCompletedMatch(bracket)?.matchNumber}`
+              : `Match ${getCurrentMatch(bracket)?.matchNumber}`}
           </h2>
           {(() => {
             const currentMatch = getCurrentMatch(bracket);
+            const lastCompletedMatch = getLastCompletedMatch(bracket);
+
+            if (bracket.phase === "game" && lastCompletedMatch?.winner) {
+              return (
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <p className="text-lg font-semibold mb-2">Winner</p>
+                  <p className="text-2xl text-primary">{lastCompletedMatch.winner}</p>
+                </div>
+              );
+            }
+
             if (!currentMatch) {
               return (
                 <p className="text-center text-muted-foreground">
@@ -258,6 +282,7 @@ export default function BracketPage() {
                 </p>
               );
             }
+
             return (
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div className="flex-1 text-center">
@@ -368,6 +393,26 @@ export default function BracketPage() {
           )}
         </div>
       </div>
+
+      {/* Add a dialog for showing the winner before proceeding */}
+      <Dialog open={showWinnerDialog} onOpenChange={setShowWinnerDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Match Complete!</DialogTitle>
+            <DialogDescription>
+              {getLastCompletedMatch(bracket)?.winner} has won the match!
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            onClick={() => {
+              setShowWinnerDialog(false);
+              updatePhaseMutation.mutate("betting");
+            }}
+          >
+            Continue to Next Match
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {/* Add dialog for winner selection */}
       <Dialog open={!!selectedMatch} onOpenChange={() => setSelectedMatch(null)}>

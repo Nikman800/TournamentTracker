@@ -103,15 +103,12 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
         {bracket.useIndependentCredits && " (bracket credits)"}
       </p>
 
-      {currentBet && (
-        <div className="p-4 bg-muted rounded-lg mb-4">
-          <p>
-            You bet {currentBet.amount} credits on {currentBet.selectedWinner}
-          </p>
+      {currentBet ? (
+        <div className="p-4 bg-muted rounded-lg">
+          <p className="mb-2">Current bet:</p>
+          <p className="text-lg font-semibold">{currentBet.amount} credits on {currentBet.selectedWinner}</p>
         </div>
-      )}
-
-      {!currentBet && (
+      ) : (
         <div className="space-y-2">
           <Input
             type="number"
