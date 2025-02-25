@@ -138,9 +138,10 @@ export default function BracketPage() {
     onSuccess: (updatedBracket) => {
       console.log("Phase update successful:", updatedBracket);
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
+      // Don't increment match count here, it will be handled by the server
       toast({
         title: "Phase Updated",
-        description: `Now in ${updatedBracket.phase} phase${updatedBracket.phase === "betting" ? ` • Match ${(updatedBracket.currentRound || 0) + 1}` : ""}`,
+        description: `Now in ${updatedBracket.phase} phase${updatedBracket.phase === "betting" ? ` • Match ${getCurrentMatch(updatedBracket)?.matchNumber}` : ""}`,
       });
     },
     onError: (error: Error) => {
@@ -179,7 +180,7 @@ export default function BracketPage() {
           <h1 className="text-4xl font-bold mb-2">{bracket.name}</h1>
           <p className="text-muted-foreground">
             Status: <span className="capitalize">{bracket.status}</span>
-            {bracket.status === "active" && (
+            {bracket.status === "active" && bracket.phase && (
               <>
                 {" "}
                 • Match {getCurrentMatch(bracket)?.matchNumber} • {bracket.phase} phase
@@ -221,7 +222,18 @@ export default function BracketPage() {
               </Button>
             ) : (
               <Button
-                onClick={() => updatePhaseMutation.mutate("betting")}
+                onClick={() => {
+                  const currentMatch = getCurrentMatch(bracket);
+                  if (!currentMatch?.winner) {
+                    toast({
+                      title: "Select Winner First",
+                      description: "Please select a winner for the current match before proceeding.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  updatePhaseMutation.mutate("betting");
+                }}
                 disabled={updatePhaseMutation.isPending}
               >
                 Start Next Round

@@ -26,6 +26,9 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
 
   const placeBetMutation = useMutation({
     mutationFn: async () => {
+      if (currentBet) {
+        throw new Error("You have already placed a bet for this match");
+      }
       const betData = {
         amount: parseInt(amount),
         selectedWinner: selected,
@@ -108,42 +111,44 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
         </div>
       )}
 
-      <div className="space-y-2">
-        <Input
-          type="number"
-          placeholder="Bet amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          min={1}
-          max={availableCredits}
-        />
+      {!currentBet && (
+        <div className="space-y-2">
+          <Input
+            type="number"
+            placeholder="Bet amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            min={1}
+            max={availableCredits}
+          />
 
-        <Select value={selected} onValueChange={setSelected}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select winner" />
-          </SelectTrigger>
-          <SelectContent>
-            {currentMatch.player1 && (
-              <SelectItem value={currentMatch.player1}>
-                {currentMatch.player1}
-              </SelectItem>
-            )}
-            {currentMatch.player2 && (
-              <SelectItem value={currentMatch.player2}>
-                {currentMatch.player2}
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+          <Select value={selected} onValueChange={setSelected}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select winner" />
+            </SelectTrigger>
+            <SelectContent>
+              {currentMatch.player1 && (
+                <SelectItem value={currentMatch.player1}>
+                  {currentMatch.player1}
+                </SelectItem>
+              )}
+              {currentMatch.player2 && (
+                <SelectItem value={currentMatch.player2}>
+                  {currentMatch.player2}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
 
-        <Button
-          className="w-full"
-          disabled={!amount || !selected || placeBetMutation.isPending}
-          onClick={() => placeBetMutation.mutate()}
-        >
-          {currentBet ? "Update Bet" : "Place Bet"}
-        </Button>
-      </div>
+          <Button
+            className="w-full"
+            disabled={!amount || !selected || placeBetMutation.isPending}
+            onClick={() => placeBetMutation.mutate()}
+          >
+            Place Bet
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
