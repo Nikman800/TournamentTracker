@@ -97,16 +97,6 @@ export default function BracketPage() {
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async (status: string) => {
-      const res = await apiRequest("PATCH", `/api/brackets/${id}`, { status });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
-    },
-  });
-
   const updatePhaseMutation = useMutation({
     mutationFn: async (phase: string) => {
       const res = await apiRequest("PATCH", `/api/brackets/${id}`, { phase });
@@ -214,9 +204,7 @@ export default function BracketPage() {
 
       {bracket.status === "active" && (
         <div className="mb-8 p-4 border rounded-lg">
-          <h2 className="text-lg font-semibold mb-4">
-            Match {matchNumber}
-          </h2>
+          <h2 className="text-lg font-semibold mb-4">Match {matchNumber}</h2>
           {(() => {
             if (bracket.phase === "game" && lastCompletedMatch?.winner) {
               return (
@@ -346,6 +334,31 @@ export default function BracketPage() {
           )}
         </div>
       </div>
+
+      {/* Winner selection dialog */}
+      <Dialog open={!!selectedMatch} onOpenChange={() => setSelectedMatch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Winner</DialogTitle>
+            <DialogDescription>Choose the winner for this match:</DialogDescription>
+          </DialogHeader>
+          <RadioGroup
+            onValueChange={(value) => updateMatchMutation.mutate(value)}
+            defaultValue={selectedMatch?.winner || undefined}
+          >
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value={selectedMatch?.player1 || ""} id="player1" />
+                <Label htmlFor="player1">{selectedMatch?.player1}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value={selectedMatch?.player2 || ""} id="player2" />
+                <Label htmlFor="player2">{selectedMatch?.player2}</Label>
+              </div>
+            </div>
+          </RadioGroup>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
