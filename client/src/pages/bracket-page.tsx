@@ -24,7 +24,6 @@ export default function BracketPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [showWinnerDialog, setShowWinnerDialog] = useState(false);
 
   function getCurrentMatch(bracket: Bracket): Match | null {
     const structure = JSON.parse(bracket.structure as string) as Match[];
@@ -59,7 +58,6 @@ export default function BracketPage() {
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
       if (!bracket || !selectedMatch) return;
-      console.log(`Updating match winner to ${winner}`);
       const structure = JSON.parse(bracket.structure as string) as Match[];
       const updatedStructure = structure.map((match) =>
         match.round === bracket.currentRound && match.position === selectedMatch.position
@@ -75,7 +73,10 @@ export default function BracketPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       setSelectedMatch(null);
-      setShowWinnerDialog(true);
+      toast({
+        title: "Winner Selected",
+        description: "The match winner has been recorded.",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -103,7 +104,6 @@ export default function BracketPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
-      setShowWinnerDialog(false);
     },
     onError: (error: Error) => {
       toast({
@@ -167,6 +167,7 @@ export default function BracketPage() {
             )}
           </p>
         </div>
+
         {isCreator && bracket.status === "pending" && (
           <Button onClick={() => updateStatusMutation.mutate("waiting")}>
             Open Bracket
@@ -187,7 +188,7 @@ export default function BracketPage() {
                 End Betting Phase
               </Button>
             ) : (
-              !showWinnerDialog && lastCompletedMatch && (
+              lastCompletedMatch && (
                 <Button
                   onClick={() => updatePhaseMutation.mutate("betting")}
                   disabled={updatePhaseMutation.isPending}
@@ -297,7 +298,7 @@ export default function BracketPage() {
             </div>
           ) : bracket.status === "active" ? (
             <>
-              {bracket.phase === "betting" && !showWinnerDialog && (
+              {bracket.phase === "betting" && currentMatch && (
                 <BettingPanel
                   bracket={bracket}
                   userCurrency={user?.virtualCurrency!}
@@ -364,25 +365,6 @@ export default function BracketPage() {
               </div>
             </div>
           </RadioGroup>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showWinnerDialog} onOpenChange={setShowWinnerDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Match Complete!</DialogTitle>
-            <DialogDescription>
-              {getLastCompletedMatch(bracket)?.winner} has won the match!
-            </DialogDescription>
-          </DialogHeader>
-          <Button
-            onClick={() => {
-              setShowWinnerDialog(false);
-              updatePhaseMutation.mutate("betting");
-            }}
-          >
-            Continue to Next Match
-          </Button>
         </DialogContent>
       </Dialog>
     </div>
