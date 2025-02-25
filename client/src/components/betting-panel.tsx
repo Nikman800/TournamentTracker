@@ -20,8 +20,8 @@ interface BettingPanelProps {
 }
 
 export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanelProps) {
-  const [amount, setAmount] = useState(currentBet?.amount?.toString() || "");
-  const [selected, setSelected] = useState(currentBet?.selectedWinner || "");
+  const [amount, setAmount] = useState("");
+  const [selected, setSelected] = useState("");
   const { toast } = useToast();
 
   const placeBetMutation = useMutation({
@@ -29,12 +29,31 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
       if (currentBet) {
         throw new Error("You have already placed a bet for this match");
       }
+
+      if (!amount || !selected) {
+        throw new Error("Please enter an amount and select a winner");
+      }
+
+      const betAmount = parseInt(amount);
+      if (isNaN(betAmount) || betAmount <= 0) {
+        throw new Error("Please enter a valid bet amount");
+      }
+
+      const availableCredits = bracket.useIndependentCredits
+        ? bracket.userBracketBalance ?? 0
+        : userCurrency;
+
+      if (betAmount > availableCredits) {
+        throw new Error("Insufficient credits");
+      }
+
       const betData = {
-        amount: parseInt(amount),
+        amount: betAmount,
         selectedWinner: selected,
         round: bracket.currentRound,
-        bracketId: bracket.id // Explicitly include bracketId
+        bracketId: bracket.id,
       };
+
       console.log("Placing bet with data:", betData);
       const res = await apiRequest("POST", `/api/brackets/${bracket.id}/bets`, betData);
       return res.json();
@@ -45,6 +64,7 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       }
+      queryClient.invalidateQueries({ queryKey: [`/api/brackets/${bracket.id}/bets`] });
       toast({
         title: "Bet placed successfully",
         description: `You bet ${amount} credits on ${selected}`,
@@ -77,7 +97,7 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
     ? bracket.userBracketBalance ?? 0
     : userCurrency;
 
-  // Get current matches for the round
+  // Get current match
   const structure = JSON.parse(bracket.structure as string) as Match[];
   const currentMatch = structure.find(
     (match) => match.round === bracket.currentRound && !match.winner
@@ -106,7 +126,9 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
       {currentBet ? (
         <div className="p-4 bg-muted rounded-lg">
           <p className="mb-2">Current bet:</p>
-          <p className="text-lg font-semibold">{currentBet.amount} credits on {currentBet.selectedWinner}</p>
+          <p className="text-lg font-semibold">
+            {currentBet.amount} credits on {currentBet.selectedWinner}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -139,7 +161,12 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
 
           <Button
             className="w-full"
-            disabled={!amount || !selected || placeBetMutation.isPending}
+            disabled={
+              !amount ||
+              !selected ||
+              placeBetMutation.isPending ||
+              !!currentBet
+            }
             onClick={() => placeBetMutation.mutate()}
           >
             Place Bet
