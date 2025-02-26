@@ -7,13 +7,24 @@ import { insertBracketSchema, insertBetSchema } from "@shared/schema";
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
+  // Daily Bonus
+  app.post("/api/claim-daily-bonus", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const user = await storage.claimDailyBonus(req.user.id);
+      res.json(user);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(400).json({ message });
+    }
+  });
+
   // Brackets
   app.post("/api/brackets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const parsed = insertBracketSchema.safeParse(req.body);
     if (!parsed.success) {
-      console.log("Invalid bracket data:", parsed.error);
       return res.status(400).json(parsed.error);
     }
 
@@ -29,7 +40,6 @@ export function registerRoutes(app: Express): Server {
       useIndependentCredits: parsed.data.useIndependentCredits ?? null,
     });
 
-    console.log("Created bracket with full details:", JSON.stringify(bracket, null, 2));
     res.status(201).json(bracket);
   });
 
@@ -41,12 +51,10 @@ export function registerRoutes(app: Express): Server {
 
     const bracket = await storage.getBracket(bracketId);
     if (!bracket) {
-      console.log(`Bracket ${bracketId} not found for update`);
       return res.status(404).json({ message: "Bracket not found" });
     }
 
     if (bracket.creatorId !== req.user.id) {
-      console.log(`User ${req.user.id} attempted to update bracket ${bracketId} but is not the creator`);
       return res.status(403).json({ message: "Only the creator can update the bracket" });
     }
 
@@ -58,8 +66,18 @@ export function registerRoutes(app: Express): Server {
 
     // Handle phase transitions
     if (bracket.phase === "game" && req.body.phase === "betting") {
-      console.log(`Transitioning from game to betting phase, incrementing round from ${bracket.currentRound}`);
-      req.body.currentRound = (bracket.currentRound || 0) + 1;
+      const structure = JSON.parse(bracket.structure as string);
+      const currentRound = bracket.currentRound || 0;
+
+      // Find next unplayed match in the current round first
+      const nextMatch = structure.find(
+        match => match.round === currentRound && !match.winner
+      );
+
+      // Only increment round if all matches in current round are complete
+      if (!nextMatch) {
+        req.body.currentRound = currentRound + 1;
+      }
     }
 
     const updated = await storage.updateBracket(bracket.id, req.body);
@@ -74,7 +92,6 @@ export function registerRoutes(app: Express): Server {
     res.json(updated);
   });
 
-  // Preserve other routes...
   app.get("/api/brackets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const brackets = await storage.listBrackets();
@@ -142,8 +159,8 @@ export function registerRoutes(app: Express): Server {
       return res.status(403).json({ message: "Admin is not allowed to bet in this bracket" });
     }
 
-    const existingBet = await storage.getBracketBets(bracketId);
-    if (existingBet.some(bet => bet.userId === req.user.id && bet.round === bracket.currentRound)) {
+    const existingBets = await storage.getBracketBets(bracketId);
+    if (existingBets.some(bet => bet.userId === req.user.id && bet.round === bracket.currentRound)) {
       return res.status(400).json({ message: "You have already placed a bet for this match" });
     }
 

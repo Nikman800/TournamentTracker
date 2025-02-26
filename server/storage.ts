@@ -120,7 +120,6 @@ export class MemStorage {
   }
 
   async updateBracket(id: number, updates: Partial<Bracket>): Promise<Bracket> {
-    console.log(`Updating bracket ${id} with:`, updates);
     const bracket = await this.getBracket(id);
     if (!bracket) throw new Error("Bracket not found");
 
@@ -138,7 +137,7 @@ export class MemStorage {
           m => m.round === match.round && m.position === match.position
         );
 
-        // If this match just got a winner, process bets and update next round matches
+        // If this match just got a winner, process bets
         if (match.winner && !previousMatch?.winner) {
           // Get all bets for this match
           const matchBets = await this.getBracketBets(bracket.id);
@@ -161,19 +160,23 @@ export class MemStorage {
             }
           }
 
-          // Update next round matches
-          const nextRoundMatches = structure.filter(m => m.round === currentRound + 1);
-          const matchIndex = currentRoundMatches.indexOf(match);
-          const nextRoundMatchIndex = Math.floor(matchIndex / 2);
+          // Find pair match (if exists) to update next round
+          const pairIndex = match.position % 2 === 0 ? match.position + 1 : match.position - 1;
+          const pairMatch = currentRoundMatches.find(m => m.position === pairIndex);
 
-          if (nextRoundMatchIndex < nextRoundMatches.length) {
-            const isFirstMatch = matchIndex % 2 === 0;
-            const nextMatch = nextRoundMatches[nextRoundMatchIndex];
-
-            if (isFirstMatch) {
-              nextMatch.player1 = match.winner;
-            } else {
-              nextMatch.player2 = match.winner;
+          if (pairMatch?.winner) {
+            // Both matches in the pair are complete, update next round
+            const nextRoundMatch = structure.find(
+              m => m.round === currentRound + 1 && m.position === Math.floor(match.position / 2)
+            );
+            if (nextRoundMatch) {
+              if (match.position % 2 === 0) {
+                nextRoundMatch.player1 = match.winner;
+                nextRoundMatch.player2 = pairMatch.winner;
+              } else {
+                nextRoundMatch.player1 = pairMatch.winner;
+                nextRoundMatch.player2 = match.winner;
+              }
             }
           }
         }
@@ -183,8 +186,6 @@ export class MemStorage {
     }
 
     const updated = { ...bracket, ...updates };
-    console.log(`Bracket ${id} updated to:`, updated);
-
     this.brackets.set(id, updated);
     return updated;
   }
