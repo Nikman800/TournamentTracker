@@ -34,6 +34,7 @@ export function registerRoutes(app: Express): Server {
       status: "pending",
       phase: null,
       currentRound: null,
+      currentMatchNumber: null,
       winningBetId: null,
       isPublic: parsed.data.isPublic ?? true,
       startingCredits: parsed.data.startingCredits ?? null,
@@ -66,19 +67,49 @@ export function registerRoutes(app: Express): Server {
       req.body.currentRound = 0;
     }
 
-    // Handle phase transitions
+    // In server/routes.ts - Modify the phase transition logic
     if (bracket.phase === "game" && req.body.phase === "betting") {
       const structure = JSON.parse(bracket.structure as string);
       const currentRound = bracket.currentRound || 0;
-
-      // Find next unplayed match in the current round first
+      const currentMatchNumber = bracket.currentMatchNumber || 1;
+      
+      // Find the next match in sequence (sorted by matchNumber)
       const nextMatch = structure.find(
-        (match: Match) => match.round === currentRound && !match.winner
+        (match: Match) => 
+          !match.winner && 
+          match.player1 && 
+          match.player2 && 
+          match.matchNumber !== null && 
+          match.matchNumber > currentMatchNumber
       );
-
-      // Only increment round if all matches in current round are complete
-      if (!nextMatch) {
-        req.body.currentRound = currentRound + 1;
+      
+      if (nextMatch) {
+        // Move to the next match
+        req.body.currentMatchNumber = nextMatch.matchNumber;
+        console.log(`Moving to next match: ${nextMatch.matchNumber}`);
+      } else {
+        // No more matches in this round with players, check if we need to advance round
+        const anyUnplayedInRound = structure.find(
+          (match: Match) => match.round === currentRound && !match.winner
+        );
+        
+        if (!anyUnplayedInRound) {
+          // All matches in current round complete, advance to next round
+          req.body.currentRound = currentRound + 1;
+          
+          // Find first match in next round
+          const firstMatchInNextRound = structure.find(
+            (match: Match) => 
+              match.round === currentRound + 1 && 
+              match.player1 && 
+              match.player2
+          );
+          
+          if (firstMatchInNextRound) {
+            req.body.currentMatchNumber = firstMatchInNextRound.matchNumber;
+            console.log(`Advancing to round ${currentRound + 1}, match ${firstMatchInNextRound.matchNumber}`);
+          }
+        }
       }
     }
 
@@ -141,16 +172,6 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const bracketId = parseInt(req.params.id);
-    const parsed = insertBetSchema.safeParse({
-      ...req.body,
-      userId: req.user.id,
-      bracketId
-    });
-
-    if (!parsed.success) {
-      return res.status(400).json(parsed.error);
-    }
-
     const bracket = await storage.getBracket(bracketId);
     if (!bracket) return res.status(404).json({ message: "Bracket not found" });
     if (bracket.status !== "active") {
@@ -161,8 +182,33 @@ export function registerRoutes(app: Express): Server {
       return res.status(403).json({ message: "Admin is not allowed to bet in this bracket" });
     }
 
+    const structure = JSON.parse(bracket.structure as string);
+    const currentMatch = structure.find(
+      (match: Match) => match.matchNumber === bracket.currentMatchNumber
+    );
+
+    if (!currentMatch) {
+      return res.status(400).json({ message: "No active match found" });
+    }
+
+    const parsed = insertBetSchema.safeParse({
+      ...req.body,
+      userId: req.user.id,
+      bracketId,
+      matchNumber: bracket.currentMatchNumber,
+      round: bracket.currentRound
+    });
+
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+
     const existingBets = await storage.getBracketBets(bracketId);
-    if (existingBets.some(bet => bet.userId === req.user.id && bet.round === bracket.currentRound)) {
+    if (existingBets.some(bet => 
+      bet.userId === req.user.id && 
+      bet.round === bracket.currentRound &&
+      bet.matchNumber === bracket.currentMatchNumber
+    )) {
       return res.status(400).json({ message: "You have already placed a bet for this match" });
     }
 

@@ -26,8 +26,23 @@ function getCurrentMatch(bracket: Bracket): Match | null {
   if (!bracket.currentRound && bracket.currentRound !== 0) return null;
 
   const structure = JSON.parse(bracket.structure as string) as Match[];
+  
+  // First try to find the match with the current match number
+  if (bracket.currentMatchNumber) {
+    const matchByNumber = structure.find(
+      (match) => match.matchNumber === bracket.currentMatchNumber && 
+                match.player1 && 
+                match.player2
+    );
+    if (matchByNumber) return matchByNumber;
+  }
+  
+  // Fallback: find any unplayed match in the current round
   const currentMatch = structure.find(
-    (match) => match.round === bracket.currentRound && !match.winner
+    (match) => match.round === bracket.currentRound && 
+              !match.winner && 
+              match.player1 && 
+              match.player2
   );
 
   return currentMatch || null;
@@ -65,13 +80,13 @@ export default function BracketPage() {
   });
 
   useEffect(() => {
-    if (bracket && (currentMatchNumber === undefined)) {
+    if (bracket) {
       const match = getCurrentMatch(bracket);
       if (match?.matchNumber) {
         setCurrentMatchNumber(match.matchNumber);
       }
     }
-  }, [bracket, currentMatchNumber]);
+  }, [bracket?.currentRound, bracket?.phase]);
 
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
@@ -117,20 +132,28 @@ export default function BracketPage() {
 
   const updatePhaseMutation = useMutation({
     mutationFn: async (phase: string) => {
+      console.log(`Changing phase to ${phase} for bracket ${id}`);
       const res = await apiRequest("PATCH", `/api/brackets/${id}`, { phase });
-      return res.json();
+      const data = await res.json();
+      console.log("Response:", data);
+      return data;
     },
     onSuccess: (data) => {
+      console.log("Phase updated successfully:", data);
       queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
       
       if (data.phase === "betting") {
         const match = getCurrentMatch(data);
+        console.log("New current match:", match);
         if (match?.matchNumber) {
           setCurrentMatchNumber(match.matchNumber);
         }
+        
+        queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}/bets`] });
       }
     },
     onError: (error: Error) => {
+      console.error("Failed to update phase:", error);
       toast({
         title: "Failed to Update Phase",
         description: error.message,
@@ -224,58 +247,52 @@ export default function BracketPage() {
               : `Match ${currentMatchNumber}`}
           </h2>
           {(() => {
-            if (bracket.phase === "game" && lastCompletedMatch?.winner) {
-              return (
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <p className="text-lg font-semibold mb-2">Winner</p>
-                  <p className="text-2xl text-primary">{lastCompletedMatch.winner}</p>
-                </div>
-              );
-            }
-
-            if (!currentMatch) {
-              return (
-                <p className="text-center text-muted-foreground">
-                  All matches in this round are complete
-                </p>
-              );
-            }
-
-            return (
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <div className="flex-1 text-center">
-                  <span
-                    className={
-                      currentMatch.winner === currentMatch.player1
-                        ? "text-primary font-bold"
-                        : ""
-                    }
-                  >
-                    {currentMatch.player1}
-                  </span>
-                </div>
-                <div className="mx-4 font-bold">vs</div>
-                <div className="flex-1 text-center">
-                  <span
-                    className={
-                      currentMatch.winner === currentMatch.player2
-                        ? "text-primary font-bold"
-                        : ""
-                    }
-                  >
-                    {currentMatch.player2}
-                  </span>
-                </div>
-                {isCreator &&
-                  bracket.phase === "game" &&
-                  !currentMatch.winner && (
-                    <div className="ml-4">
-                      <Button onClick={() => setSelectedMatch(currentMatch)}>
-                        Select Winner
-                      </Button>
+            if (bracket.phase === "game") {
+              if (lastCompletedMatch?.winner) {
+                return (
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <p className="text-lg font-semibold mb-2">Winner of Match {lastCompletedMatch.matchNumber}</p>
+                    <p className="text-2xl text-primary">{lastCompletedMatch.winner}</p>
+                  </div>
+                );
+              } else if (currentMatch) {
+                return (
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex-1 text-center">
+                      <span className={currentMatch.winner === currentMatch.player1 ? "text-primary font-bold" : ""}>
+                        {currentMatch.player1}
+                      </span>
                     </div>
-                  )}
-              </div>
+                    <div className="mx-4 font-bold">vs</div>
+                    <div className="flex-1 text-center">
+                      <span className={currentMatch.winner === currentMatch.player2 ? "text-primary font-bold" : ""}>
+                        {currentMatch.player2}
+                      </span>
+                    </div>
+                    {isCreator && !currentMatch.winner && (
+                      <div className="ml-4">
+                        <Button onClick={() => setSelectedMatch(currentMatch)}>
+                          Select Winner
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+            } else if (bracket.phase === "betting" && currentMatch) {
+              return (
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div className="flex-1 text-center">{currentMatch.player1}</div>
+                  <div className="mx-4 font-bold">vs</div>
+                  <div className="flex-1 text-center">{currentMatch.player2}</div>
+                </div>
+              );
+            }
+            
+            return (
+              <p className="text-center text-muted-foreground">
+                All matches in this round are complete
+              </p>
             );
           })()}
         </div>
@@ -290,10 +307,10 @@ export default function BracketPage() {
             isCreator
               ? (match) => {
                   if (
-                    currentMatch &&
-                    match.round === currentMatch.round &&
-                    match.position === currentMatch.position &&
-                    !match.winner
+                    !match.winner && 
+                    match.player1 && 
+                    match.player2 &&
+                    match.matchNumber === bracket.currentMatchNumber
                   ) {
                     setSelectedMatch(match);
                   }
@@ -318,25 +335,37 @@ export default function BracketPage() {
                   bracket={bracket}
                   userCurrency={user?.virtualCurrency!}
                   currentBet={bets?.find(
-                    (bet) =>
+                    (bet) => 
                       bet.userId === user?.id &&
-                      bet.round === bracket.currentRound
+                      bet.round === bracket.currentRound &&
+                      bet.matchNumber === bracket.currentMatchNumber &&
+                      bet.bracketId === bracket.id
                   )}
+                  key={`betting-panel-${bracket.currentRound}-${bracket.currentMatchNumber}`}
                 />
               )}
               <div className="p-4 border rounded-lg">
                 <h3 className="font-semibold mb-4">Current Bets</h3>
                 <div className="space-y-2">
-                  {bets?.filter(bet => bet.round === bracket.currentRound)
-                    .map((bet) => (
-                      <div
-                        key={bet.id}
-                        className="flex justify-between text-sm p-2 bg-muted rounded"
-                      >
-                        <span>{bet.selectedWinner}</span>
-                        <span>{bet.amount} credits</span>
-                      </div>
-                    ))}
+                  {bets?.filter(bet => 
+                    bet.round === bracket.currentRound && 
+                    bet.matchNumber === bracket.currentMatchNumber && 
+                    bet.bracketId === bracket.id
+                  ).map((bet) => (
+                    <div
+                      key={bet.id}
+                      className="flex justify-between text-sm p-2 bg-muted rounded"
+                    >
+                      <span>{bet.selectedWinner}</span>
+                      <span>{bet.amount} credits</span>
+                    </div>
+                  ))}
+                  {(bets && bets.filter(bet => 
+                    bet.round === bracket.currentRound && 
+                    bet.matchNumber === bracket.currentMatchNumber
+                  ).length === 0) && (
+                    <p className="text-sm text-muted-foreground">No bets placed for this match yet</p>
+                  )}
                 </div>
               </div>
             </>

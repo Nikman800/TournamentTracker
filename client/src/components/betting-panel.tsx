@@ -100,7 +100,10 @@ export function BettingPanel({ bracket, userCurrency, currentBet }: BettingPanel
   // Get current match
   const structure = JSON.parse(bracket.structure as string) as Match[];
   const currentMatch = structure.find(
-    (match) => match.round === bracket.currentRound && !match.winner
+    (match) => match.matchNumber === bracket.currentMatchNumber && 
+               !match.winner && 
+               match.player1 && 
+               match.player2
   );
 
   if (!currentMatch) {
