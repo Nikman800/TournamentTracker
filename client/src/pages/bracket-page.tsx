@@ -26,6 +26,8 @@ export default function BracketPage() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
   function getCurrentMatch(bracket: Bracket): Match | null {
+    if (!bracket.currentRound && bracket.currentRound !== 0) return null;
+
     const structure = JSON.parse(bracket.structure as string) as Match[];
     const currentMatch = structure.find(
       (match) => match.round === bracket.currentRound && !match.winner
@@ -42,6 +44,8 @@ export default function BracketPage() {
   }
 
   function getLastCompletedMatch(bracket: Bracket): Match | null {
+    if (!bracket.currentRound && bracket.currentRound !== 0) return null;
+
     const structure = JSON.parse(bracket.structure as string) as Match[];
     const match = structure.find(
       (match) => match.round === bracket.currentRound && match.winner
@@ -204,7 +208,7 @@ export default function BracketPage() {
       {bracket.status === "active" && (
         <div className="mb-8 p-4 border rounded-lg">
           <h2 className="text-lg font-semibold mb-4">
-            {bracket.phase === "game" 
+            {bracket.phase === "game"
               ? `Match ${(currentMatch || lastCompletedMatch)?.matchNumber}`
               : `Match ${currentMatch?.matchNumber}`}
           </h2>
@@ -314,14 +318,14 @@ export default function BracketPage() {
                 <div className="space-y-2">
                   {bets?.filter(bet => bet.round === bracket.currentRound)
                     .map((bet) => (
-                    <div
-                      key={bet.id}
-                      className="flex justify-between text-sm p-2 bg-muted rounded"
-                    >
-                      <span>{bet.selectedWinner}</span>
-                      <span>{bet.amount} credits</span>
-                    </div>
-                  ))}
+                      <div
+                        key={bet.id}
+                        className="flex justify-between text-sm p-2 bg-muted rounded"
+                      >
+                        <span>{bet.selectedWinner}</span>
+                        <span>{bet.amount} credits</span>
+                      </div>
+                    ))}
                 </div>
               </div>
             </>
