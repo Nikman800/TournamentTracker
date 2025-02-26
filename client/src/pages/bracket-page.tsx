@@ -34,12 +34,10 @@ function getCurrentMatch(bracket: Bracket): Match | null {
   );
 
   if (currentMatch) {
-    // Count only completed matches in previous rounds
+    // Count completed matches in the current round
     const matchNumber = structure.filter(
-      (m) => 
-        (m.round < bracket.currentRound) || 
-        (m.round === bracket.currentRound && m.position < currentMatch.position)
-    ).length + 1;
+      (m) => m.round === bracket.currentRound && m.position <= currentMatch.position
+    ).length;
 
     return { ...currentMatch, matchNumber };
   }
@@ -50,19 +48,17 @@ function getLastCompletedMatch(bracket: Bracket): Match | null {
   if (!bracket.currentRound && bracket.currentRound !== 0) return null;
 
   const structure = JSON.parse(bracket.structure as string) as Match[];
-  const match = structure.find(
+  const completedMatches = structure.filter(
     (match) => match.round === bracket.currentRound && match.winner
   );
 
-  if (match) {
-    // Count only completed matches up to this one
+  if (completedMatches.length > 0) {
+    const lastMatch = completedMatches[completedMatches.length - 1];
     const matchNumber = structure.filter(
-      (m) => 
-        (m.round < bracket.currentRound) || 
-        (m.round === bracket.currentRound && m.position <= match.position)
+      (m) => m.round === bracket.currentRound && m.position <= lastMatch.position
     ).length;
 
-    return { ...match, matchNumber };
+    return { ...lastMatch, matchNumber };
   }
   return null;
 }

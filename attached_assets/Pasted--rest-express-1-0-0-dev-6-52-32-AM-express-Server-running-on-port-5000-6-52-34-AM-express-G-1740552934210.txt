@@ -1,0 +1,169 @@
+
+> rest-express@1.0.0 dev
+6:52:32 AM [express] Server running on port 5000
+6:52:34 AM [express] GET /api/user 401 in 3ms
+6:52:39 AM [express] GET /api/user 401 in 1ms
+6:52:45 AM [express] GET /api/user 401 in 1ms
+6:53:06 AM [express] POST /api/register 201 in 43ms :: {"username":"testaccount","password":"0eeb8c2…
+6:53:06 AM [express] GET /api/brackets 200 in 2ms :: []
+6:53:08 AM [express] POST /api/claim-daily-bonus 200 in 1ms :: {"username":"testaccount","password":…
+6:53:37 AM [express] POST /api/brackets 201 in 2ms :: {"name":"Test Bracket","isPublic":false,"acces…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:53:38 AM [express] GET /api/brackets/1 200 in 3ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:53:38 AM [express] GET /api/brackets/1 304 in 1ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Attempting to update bracket 1 { status: 'waiting' }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":null},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "waiting",
+  "phase": null,
+  "currentRound": null,
+  "winningBetId": null,
+  "id": 1
+}
+6:53:49 AM [express] PATCH /api/brackets/1 200 in 3ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:53:49 AM [express] GET /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Attempting to update bracket 1 { status: 'active' }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":null},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "active",
+  "phase": "betting",
+  "currentRound": 0,
+  "winningBetId": null,
+  "id": 1
+}
+6:53:52 AM [express] PATCH /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:53:52 AM [express] GET /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"acce…
+6:53:53 AM [express] GET /api/brackets/1/bets 200 in 1ms :: []
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:09 AM [express] POST /api/brackets/1/bets 201 in 3ms :: {"userId":1,"bracketId":1,"amount":1000…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:10 AM [express] GET /api/brackets/1 200 in 2ms :: {"name":"Test Bracket","isPublic":false,"acce…
+6:54:10 AM [express] GET /api/brackets/1/bets 200 in 1ms :: [{"userId":1,"bracketId":1,"amount":1000…
+Attempting to update bracket 1 { phase: 'game' }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":null},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "active",
+  "phase": "game",
+  "currentRound": 0,
+  "winningBetId": null,
+  "id": 1
+}
+6:54:13 AM [express] PATCH /api/brackets/1 200 in 4ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:14 AM [express] GET /api/brackets/1 200 in 2ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Attempting to update bracket 1 {
+  structure: `[{"round":0,"position":0,"player1":"King of Games Bitch!","player2":"Final Eren","winner":"King of Games Bitch!"},{"round":0,"position":1,"player1":"SSGSS Minecraft Goku","player2":"Ronald McDonald","winner":null},{"round":0,"position":2,"player1":"Piplup's 7th Evolution","player2":"Spacemouse Deluxe","winner":null},{"round":0,"position":3,"player1":"Madness Goomba","player2":"Omega Tiger Woods","winner":null},{"round":0,"position":4,"player1":"Superman","player2":"Duang-Hell","winner":null},{"round":0,"position":5,"player1":"Giratina","player2":"Pepsiman","winner":null},{"round":0,"position":6,"player1":"Duane","player2":"Dukie Nukie","winner":null},{"round":0,"position":7,"player1":"I have the high ground","player2":"Rare Darth Vader","winner":null},{"round":1,"position":0,"player1":null,"player2":null,"winner":null},{"round":1,"position":1,"player1":null,"player2":null,"winner":null},{"round":1,"position":2,"player1":null,"player2":null,"winner":null},{"round":1,"position":3,"player1":null,"player2":null,"winner":null},{"round":2,"position":0,"player1":null,"player2":null,"winner":null},{"round":2,"position":1,"player1":null,"player2":null,"winner":null},{"round":3,"position":0,"player1":null,"player2":null,"winner":null}]`
+}
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":\"King of Games Bitch!\"},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "active",
+  "phase": "game",
+  "currentRound": 0,
+  "winningBetId": null,
+  "id": 1
+}
+6:54:18 AM [express] PATCH /api/brackets/1 200 in 2ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:18 AM [express] GET /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Attempting to update bracket 1 { phase: 'betting' }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":\"King of Games Bitch!\"},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "active",
+  "phase": "betting",
+  "currentRound": 0,
+  "winningBetId": null,
+  "id": 1
+}
+6:54:26 AM [express] PATCH /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:26 AM [express] GET /api/brackets/1 200 in 2ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Attempting to update bracket 1 { phase: 'game' }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":\"King of Games Bitch!\"},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "active",
+  "phase": "game",
+  "currentRound": 0,
+  "winningBetId": null,
+  "id": 1
+}
+6:54:57 AM [express] PATCH /api/brackets/1 200 in 2ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:58 AM [express] GET /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"acce…
+Attempting to update bracket 1 { phase: 'betting' }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+Updated bracket: {
+  "name": "Test Bracket",
+  "isPublic": false,
+  "accessCode": "access",
+  "structure": "[{\"round\":0,\"position\":0,\"player1\":\"King of Games Bitch!\",\"player2\":\"Final Eren\",\"winner\":\"King of Games Bitch!\"},{\"round\":0,\"position\":1,\"player1\":\"SSGSS Minecraft Goku\",\"player2\":\"Ronald McDonald\",\"winner\":null},{\"round\":0,\"position\":2,\"player1\":\"Piplup's 7th Evolution\",\"player2\":\"Spacemouse Deluxe\",\"winner\":null},{\"round\":0,\"position\":3,\"player1\":\"Madness Goomba\",\"player2\":\"Omega Tiger Woods\",\"winner\":null},{\"round\":0,\"position\":4,\"player1\":\"Superman\",\"player2\":\"Duang-Hell\",\"winner\":null},{\"round\":0,\"position\":5,\"player1\":\"Giratina\",\"player2\":\"Pepsiman\",\"winner\":null},{\"round\":0,\"position\":6,\"player1\":\"Duane\",\"player2\":\"Dukie Nukie\",\"winner\":null},{\"round\":0,\"position\":7,\"player1\":\"I have the high ground\",\"player2\":\"Rare Darth Vader\",\"winner\":null},{\"round\":1,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":2,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":1,\"position\":3,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":2,\"position\":1,\"player1\":null,\"player2\":null,\"winner\":null},{\"round\":3,\"position\":0,\"player1\":null,\"player2\":null,\"winner\":null}]",
+  "startingCredits": 3000,
+  "useIndependentCredits": true,
+  "adminCanBet": true,
+  "creatorId": 1,
+  "status": "active",
+  "phase": "betting",
+  "currentRound": 0,
+  "winningBetId": null,
+  "id": 1
+}
+6:54:59 AM [express] PATCH /api/brackets/1 200 in 1ms :: {"name":"Test Bracket","isPublic":false,"ac…
+Storage state: { bracketsSize: 1, availableIds: [ 1 ], requestedId: 1 }
+6:54:59 AM [express] GET /api/brackets/1 200 in 2ms :: {"name":"Test Bracket","isPublic":false,"acce…
