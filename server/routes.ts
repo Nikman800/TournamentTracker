@@ -65,6 +65,19 @@ export function registerRoutes(app: Express): Server {
     if (req.body.status === "active" && bracket.status === "waiting") {
       req.body.phase = "betting";
       req.body.currentRound = 0;
+      req.body.currentMatchNumber = 1; // Initialize to first match
+      
+      // Make sure the first match is properly set up
+      const structure = JSON.parse(bracket.structure as string);
+      const firstMatch = structure.find(
+        (match: Match) => match.round === 0 && match.matchNumber === 1
+      );
+      
+      if (!firstMatch) {
+        console.log("Warning: Could not find first match in bracket");
+      } else {
+        console.log(`First match initialized: ${firstMatch.player1} vs ${firstMatch.player2}`);
+      }
     }
 
     // In server/routes.ts - Modify the phase transition logic

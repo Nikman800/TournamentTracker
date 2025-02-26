@@ -90,10 +90,19 @@ export default function BracketPage() {
 
   const updateMatchMutation = useMutation({
     mutationFn: async (winner: string) => {
-      if (!bracket || !selectedMatch) return;
+      if (!bracket) return;
+      
       const structure = JSON.parse(bracket.structure as string) as Match[];
+      const currentMatch = structure.find(
+        (match) => match.matchNumber === bracket.currentMatchNumber
+      );
+      
+      if (!currentMatch) {
+        throw new Error("Current match not found");
+      }
+      
       const updatedStructure = structure.map((match) =>
-        match.round === selectedMatch.round && match.position === selectedMatch.position
+        match.matchNumber === bracket.currentMatchNumber
           ? { ...match, winner }
           : match
       );
@@ -248,31 +257,28 @@ export default function BracketPage() {
           </h2>
           {(() => {
             if (bracket.phase === "game") {
-              if (lastCompletedMatch?.winner) {
+              if (currentMatch && currentMatch.player1 && currentMatch.player2) {
                 return (
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <p className="text-lg font-semibold mb-2">Winner of Match {lastCompletedMatch.matchNumber}</p>
-                    <p className="text-2xl text-primary">{lastCompletedMatch.winner}</p>
-                  </div>
-                );
-              } else if (currentMatch) {
-                return (
-                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                    <div className="flex-1 text-center">
-                      <span className={currentMatch.winner === currentMatch.player1 ? "text-primary font-bold" : ""}>
-                        {currentMatch.player1}
-                      </span>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex-1 text-center">{currentMatch.player1}</div>
+                      <div className="mx-4 font-bold">vs</div>
+                      <div className="flex-1 text-center">{currentMatch.player2}</div>
                     </div>
-                    <div className="mx-4 font-bold">vs</div>
-                    <div className="flex-1 text-center">
-                      <span className={currentMatch.winner === currentMatch.player2 ? "text-primary font-bold" : ""}>
-                        {currentMatch.player2}
-                      </span>
-                    </div>
-                    {isCreator && !currentMatch.winner && (
-                      <div className="ml-4">
-                        <Button onClick={() => setSelectedMatch(currentMatch)}>
-                          Select Winner
+                    
+                    {isCreator && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <Button
+                          onClick={() => updateMatchMutation.mutate(currentMatch.player1!)}
+                          disabled={updateMatchMutation.isPending}
+                        >
+                          {currentMatch.player1} Wins
+                        </Button>
+                        <Button
+                          onClick={() => updateMatchMutation.mutate(currentMatch.player2!)}
+                          disabled={updateMatchMutation.isPending}
+                        >
+                          {currentMatch.player2} Wins
                         </Button>
                       </div>
                     )}
