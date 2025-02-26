@@ -26,20 +26,14 @@ export default function BracketPage() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
   function getCurrentMatch(bracket: Bracket): Match | null {
-    if (!bracket.structure) return null;
-
     const structure = JSON.parse(bracket.structure as string) as Match[];
     const currentMatch = structure.find(
-      (match) =>
-        match.round === bracket.currentRound &&
-        match.player1 &&
-        match.player2 &&
-        !match.winner
+      (match) => match.round === bracket.currentRound && !match.winner
     );
 
     if (currentMatch) {
       const matchNumber = structure.filter(
-        (m) => m.round === bracket.currentRound && m.position <= currentMatch.position
+        (m) => m.round <= bracket.currentRound && m.position <= currentMatch.position
       ).length;
       currentMatch.matchNumber = matchNumber;
       return currentMatch;
@@ -48,21 +42,17 @@ export default function BracketPage() {
   }
 
   function getLastCompletedMatch(bracket: Bracket): Match | null {
-    if (!bracket.structure) return null;
-
     const structure = JSON.parse(bracket.structure as string) as Match[];
-    const lastMatch = structure.find(
+    const match = structure.find(
       (match) => match.round === bracket.currentRound && match.winner
     );
-
-    if (lastMatch) {
+    if (match) {
       const matchNumber = structure.filter(
-        (m) => m.round === bracket.currentRound && m.position <= lastMatch.position
+        (m) => m.round <= bracket.currentRound && m.position <= match.position
       ).length;
-      lastMatch.matchNumber = matchNumber;
-      return lastMatch;
+      match.matchNumber = matchNumber;
     }
-    return null;
+    return match || null;
   }
 
   const updateMatchMutation = useMutation({
@@ -94,6 +84,16 @@ export default function BracketPage() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      const res = await apiRequest("PATCH", `/api/brackets/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
     },
   });
 
@@ -151,7 +151,6 @@ export default function BracketPage() {
   const isCreator = bracket.creatorId === user?.id;
   const currentMatch = getCurrentMatch(bracket);
   const lastCompletedMatch = getLastCompletedMatch(bracket);
-  const matchNumber = currentMatch?.matchNumber || lastCompletedMatch?.matchNumber;
 
   return (
     <div className="container mx-auto p-6">
@@ -163,7 +162,7 @@ export default function BracketPage() {
             {bracket.status === "active" && bracket.phase && (
               <>
                 {" "}
-                • Match {matchNumber} • {bracket.phase} phase
+                • Match {(currentMatch || lastCompletedMatch)?.matchNumber} • {bracket.phase} phase
               </>
             )}
           </p>
@@ -204,7 +203,11 @@ export default function BracketPage() {
 
       {bracket.status === "active" && (
         <div className="mb-8 p-4 border rounded-lg">
-          <h2 className="text-lg font-semibold mb-4">Match {matchNumber}</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            {bracket.phase === "game" 
+              ? `Match ${(currentMatch || lastCompletedMatch)?.matchNumber}`
+              : `Match ${currentMatch?.matchNumber}`}
+          </h2>
           {(() => {
             if (bracket.phase === "game" && lastCompletedMatch?.winner) {
               return (
@@ -301,24 +304,24 @@ export default function BracketPage() {
                   userCurrency={user?.virtualCurrency!}
                   currentBet={bets?.find(
                     (bet) =>
-                      bet.userId === user?.id && bet.round === bracket.currentRound
+                      bet.userId === user?.id &&
+                      bet.round === bracket.currentRound
                   )}
                 />
               )}
               <div className="p-4 border rounded-lg">
                 <h3 className="font-semibold mb-4">Current Bets</h3>
                 <div className="space-y-2">
-                  {bets
-                    ?.filter((bet) => bet.round === bracket.currentRound)
+                  {bets?.filter(bet => bet.round === bracket.currentRound)
                     .map((bet) => (
-                      <div
-                        key={bet.id}
-                        className="flex justify-between text-sm p-2 bg-muted rounded"
-                      >
-                        <span>{bet.selectedWinner}</span>
-                        <span>{bet.amount} credits</span>
-                      </div>
-                    ))}
+                    <div
+                      key={bet.id}
+                      className="flex justify-between text-sm p-2 bg-muted rounded"
+                    >
+                      <span>{bet.selectedWinner}</span>
+                      <span>{bet.amount} credits</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </>
@@ -335,7 +338,6 @@ export default function BracketPage() {
         </div>
       </div>
 
-      {/* Winner selection dialog */}
       <Dialog open={!!selectedMatch} onOpenChange={() => setSelectedMatch(null)}>
         <DialogContent>
           <DialogHeader>
@@ -348,11 +350,17 @@ export default function BracketPage() {
           >
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value={selectedMatch?.player1 || ""} id="player1" />
+                <RadioGroupItem
+                  value={selectedMatch?.player1 || ""}
+                  id="player1"
+                />
                 <Label htmlFor="player1">{selectedMatch?.player1}</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value={selectedMatch?.player2 || ""} id="player2" />
+                <RadioGroupItem
+                  value={selectedMatch?.player2 || ""}
+                  id="player2"
+                />
                 <Label htmlFor="player2">{selectedMatch?.player2}</Label>
               </div>
             </div>

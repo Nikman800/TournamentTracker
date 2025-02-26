@@ -25,6 +25,7 @@ export function registerRoutes(app: Express): Server {
 
     const parsed = insertBracketSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.log("Invalid bracket data:", parsed.error);
       return res.status(400).json(parsed.error);
     }
 
@@ -33,13 +34,14 @@ export function registerRoutes(app: Express): Server {
       creatorId: req.user.id,
       status: "pending",
       phase: null,
-      currentRound: 0,
+      currentRound: null,
       winningBetId: null,
       isPublic: parsed.data.isPublic ?? true,
       startingCredits: parsed.data.startingCredits ?? null,
       useIndependentCredits: parsed.data.useIndependentCredits ?? null,
     });
 
+    console.log("Created bracket with full details:", JSON.stringify(bracket, null, 2));
     res.status(201).json(bracket);
   });
 
@@ -53,18 +55,25 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const bracketId = parseInt(req.params.id);
+    console.log(`Attempting to retrieve bracket ${bracketId}`);
+
     if (isNaN(bracketId)) {
+      console.log("Invalid bracket ID:", req.params.id);
       return res.status(400).json({ message: "Invalid bracket ID" });
     }
 
     const bracket = await storage.getBracket(bracketId);
+    console.log("Retrieved bracket:", JSON.stringify(bracket, null, 2));
+
     if (!bracket) {
+      console.log(`Bracket ${bracketId} not found in storage`);
       return res.status(404).json({ message: "Bracket not found" });
     }
 
     // For brackets using independent credits, attach the user's balance
     if (bracket.useIndependentCredits) {
       const balance = await storage.getBracketBalance(req.user.id, bracket.id);
+      console.log(`User ${req.user.id} bracket balance for ${bracket.id}:`, balance);
       return res.json({ ...bracket, userBracketBalance: balance });
     }
 
@@ -75,12 +84,16 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const bracketId = parseInt(req.params.id);
+    console.log(`Attempting to update bracket ${bracketId}`, req.body);
+
     const bracket = await storage.getBracket(bracketId);
     if (!bracket) {
+      console.log(`Bracket ${bracketId} not found for update`);
       return res.status(404).json({ message: "Bracket not found" });
     }
 
     if (bracket.creatorId !== req.user.id) {
+      console.log(`User ${req.user.id} attempted to update bracket ${bracketId} but is not the creator`);
       return res.status(403).json({ message: "Only the creator can update the bracket" });
     }
 
@@ -88,6 +101,7 @@ export function registerRoutes(app: Express): Server {
     if (req.body.status) {
       const currentStatus = bracket.status;
       const newStatus = req.body.status;
+      console.log(`Attempting status transition from ${currentStatus} to ${newStatus}`);
 
       const validTransitions = {
         pending: ["waiting"],
@@ -96,9 +110,9 @@ export function registerRoutes(app: Express): Server {
       };
 
       if (!validTransitions[currentStatus]?.includes(newStatus)) {
-        return res.status(400).json({
-          message: `Invalid status transition from ${currentStatus} to ${newStatus}`,
-        });
+        const error = `Invalid status transition from ${currentStatus} to ${newStatus}`;
+        console.log(error);
+        return res.status(400).json({ message: error });
       }
 
       // When transitioning to active, initialize phase and round
@@ -108,7 +122,21 @@ export function registerRoutes(app: Express): Server {
       }
     }
 
+    // When transitioning from game to betting phase, increment round
+    if (bracket.phase === "game" && req.body.phase === "betting") {
+      console.log(`Transitioning from game to betting phase, incrementing round from ${bracket.currentRound}`);
+      req.body.currentRound = (bracket.currentRound || 0) + 1;
+    }
+
     const updated = await storage.updateBracket(bracket.id, req.body);
+    console.log("Updated bracket:", JSON.stringify(updated, null, 2));
+
+    // Return balance info if it's a private bracket
+    if (updated.useIndependentCredits) {
+      const balance = await storage.getBracketBalance(req.user.id, updated.id);
+      return res.json({ ...updated, userBracketBalance: balance });
+    }
+
     res.json(updated);
   });
 
@@ -151,17 +179,8 @@ export function registerRoutes(app: Express): Server {
 
     const bracket = await storage.getBracket(bracketId);
     if (!bracket) return res.status(404).json({ message: "Bracket not found" });
-    if (bracket.status !== "active" || bracket.phase !== "betting") {
-      return res.status(400).json({ message: "Betting is not currently allowed" });
-    }
-
-    // Check if user already has a bet for this round
-    const existingBets = await storage.getBracketBets(bracketId);
-    const existingBet = existingBets.find(
-      bet => bet.userId === req.user.id && bet.round === bracket.currentRound
-    );
-    if (existingBet) {
-      return res.status(400).json({ message: "You have already placed a bet for this match" });
+    if (bracket.status !== "active") {
+      return res.status(400).json({ message: "Bracket not active" });
     }
 
     // Check if this is the admin and if they're allowed to bet
