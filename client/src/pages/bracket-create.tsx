@@ -293,7 +293,9 @@ function generateBracketStructure(players: string[]) {
   const matches = [];
   let round = 0;
   let position = 0;
+  let matchNumber = 1; // Initialize match number counter
 
+  // First round matches
   for (let i = 0; i < filledPlayers.length; i += 2) {
     matches.push({
       round,
@@ -301,9 +303,11 @@ function generateBracketStructure(players: string[]) {
       player1: filledPlayers[i],
       player2: filledPlayers[i + 1],
       winner: filledPlayers[i + 1] === "BYE" ? filledPlayers[i] : null,
+      matchNumber: matchNumber++, // Assign and increment match number
     });
   }
 
+  // Subsequent rounds
   const totalRounds = Math.log2(totalPlayers);
   for (let r = 1; r < totalRounds; r++) {
     position = 0;
@@ -315,6 +319,7 @@ function generateBracketStructure(players: string[]) {
         player1: null,
         player2: null,
         winner: null,
+        matchNumber: matchNumber++, // Assign and increment match number
       });
     }
   }

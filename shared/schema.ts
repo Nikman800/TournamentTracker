@@ -41,6 +41,7 @@ export const matches = pgTable("matches", {
   player1: text("player1"),
   player2: text("player2"),
   winner: text("winner"),
+  matchNumber: integer("match_number"),
 });
 
 export const bets = pgTable("bets", {

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertBracketSchema, insertBetSchema } from "@shared/schema";
+import { insertBracketSchema, insertBetSchema, type Match } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -38,6 +38,8 @@ export function registerRoutes(app: Express): Server {
       isPublic: parsed.data.isPublic ?? true,
       startingCredits: parsed.data.startingCredits ?? null,
       useIndependentCredits: parsed.data.useIndependentCredits ?? null,
+      accessCode: parsed.data.accessCode ?? null,
+      adminCanBet: parsed.data.adminCanBet ?? null,
     });
 
     res.status(201).json(bracket);
@@ -71,7 +73,7 @@ export function registerRoutes(app: Express): Server {
 
       // Find next unplayed match in the current round first
       const nextMatch = structure.find(
-        match => match.round === currentRound && !match.winner
+        (match: Match) => match.round === currentRound && !match.winner
       );
 
       // Only increment round if all matches in current round are complete
