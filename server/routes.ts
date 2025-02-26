@@ -97,31 +97,6 @@ export function registerRoutes(app: Express): Server {
       return res.status(403).json({ message: "Only the creator can update the bracket" });
     }
 
-    // Validate status transition
-    if (req.body.status) {
-      const currentStatus = bracket.status;
-      const newStatus = req.body.status;
-      console.log(`Attempting status transition from ${currentStatus} to ${newStatus}`);
-
-      const validTransitions = {
-        pending: ["waiting"],
-        waiting: ["active"],
-        active: ["completed"],
-      };
-
-      if (!validTransitions[currentStatus]?.includes(newStatus)) {
-        const error = `Invalid status transition from ${currentStatus} to ${newStatus}`;
-        console.log(error);
-        return res.status(400).json({ message: error });
-      }
-
-      // When transitioning to active, initialize phase and round
-      if (newStatus === "active") {
-        req.body.phase = "betting";
-        req.body.currentRound = 0;
-      }
-    }
-
     // When transitioning from game to betting phase, increment round
     if (bracket.phase === "game" && req.body.phase === "betting") {
       console.log(`Transitioning from game to betting phase, incrementing round from ${bracket.currentRound}`);

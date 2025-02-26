@@ -138,7 +138,7 @@ export class MemStorage {
           m => m.round === match.round && m.position === match.position
         );
 
-        // If this match just got a winner, process bets
+        // If this match just got a winner, process bets and update next round matches
         if (match.winner && !previousMatch?.winner) {
           // Get all bets for this match
           const matchBets = await this.getBracketBets(bracket.id);
@@ -160,29 +160,26 @@ export class MemStorage {
               }
             }
           }
-        }
-      }
 
-      // Check if all matches in current round have winners
-      const allMatchesComplete = currentRoundMatches.every(m => m.winner);
+          // Update next round matches
+          const nextRoundMatches = structure.filter(m => m.round === currentRound + 1);
+          const matchIndex = currentRoundMatches.indexOf(match);
+          const nextRoundMatchIndex = Math.floor(matchIndex / 2);
 
-      if (allMatchesComplete) {
-        // Update next round's matches with winners
-        for (let i = 0; i < currentRoundMatches.length; i += 2) {
-          const match1 = currentRoundMatches[i];
-          const match2 = currentRoundMatches[i + 1];
-          if (match1?.winner && match2?.winner) {
-            const nextRoundMatch = structure.find(
-              m => m.round === currentRound + 1 && m.position === Math.floor(i/2)
-            );
-            if (nextRoundMatch) {
-              nextRoundMatch.player1 = match1.winner;
-              nextRoundMatch.player2 = match2.winner;
+          if (nextRoundMatchIndex < nextRoundMatches.length) {
+            const isFirstMatch = matchIndex % 2 === 0;
+            const nextMatch = nextRoundMatches[nextRoundMatchIndex];
+
+            if (isFirstMatch) {
+              nextMatch.player1 = match.winner;
+            } else {
+              nextMatch.player2 = match.winner;
             }
           }
         }
-        updates.structure = JSON.stringify(structure);
       }
+
+      updates.structure = JSON.stringify(structure);
     }
 
     const updated = { ...bracket, ...updates };
