@@ -68,6 +68,18 @@ function hasCurrentMatchWinner(bracket: Bracket): boolean {
   return !!currentMatch?.winner;
 }
 
+// Improved function to check if this is the final match
+function isFinalMatch(bracket: Bracket): boolean {
+  if (!bracket.structure) return false;
+  
+  const structure = JSON.parse(bracket.structure as string) as Match[];
+  
+  // Check if the current match is the one with the highest matchNumber
+  const maxMatchNumber = Math.max(...structure.map(m => m.matchNumber || 0));
+  
+  return bracket.currentMatchNumber === maxMatchNumber;
+}
+
 export default function BracketPage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -241,12 +253,40 @@ export default function BracketPage() {
                 End Betting Phase
               </Button>
             ) : (
-              <Button
-                onClick={() => updatePhaseMutation.mutate("betting")}
-                disabled={updatePhaseMutation.isPending || !hasCurrentMatchWinner(bracket)}
-              >
-                Start Next Match
-              </Button>
+              isFinalMatch(bracket) ? (
+                <Button
+                  onClick={() => {
+                    // First ensure the match has a winner
+                    if (hasCurrentMatchWinner(bracket)) {
+                      // Then update the bracket status to "completed"
+                      apiRequest("PATCH", `/api/brackets/${id}`, {
+                        status: "completed"
+                      }).then(() => {
+                        // Navigate to results page
+                        window.location.href = `/bracket/${id}/results`;
+                      });
+                    } else {
+                      toast({
+                        title: "Select a Winner",
+                        description: "Please select a winner for the final match before finishing the bracket.",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  disabled={!hasCurrentMatchWinner(bracket)}
+                  className="ml-auto"
+                >
+                  Finish Bracket
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => updatePhaseMutation.mutate("betting")}
+                  disabled={updatePhaseMutation.isPending || !hasCurrentMatchWinner(bracket)}
+                  className="ml-auto"
+                >
+                  Start Next Match
+                </Button>
+              )
             )}
           </div>
         )}

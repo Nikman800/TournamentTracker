@@ -9,6 +9,7 @@ import AuthPage from "@/pages/auth-page";
 import HomePage from "@/pages/home-page";
 import BracketPage from "@/pages/bracket-page";
 import BracketCreate from "@/pages/bracket-create";
+import BracketResultsPage from "@/pages/bracket-results";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <ProtectedRoute path="/brackets/new" component={BracketCreate} />
       <ProtectedRoute path="/brackets/:id" component={BracketPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/bracket/:id/results" component={BracketResultsPage} />
       <Route component={NotFound} />
     </Switch>
   );
