@@ -137,11 +137,14 @@ export class MemStorage {
           m => m.round === match.round && m.position === match.position
         );
 
-        // If this match just got a winner, process bets
+        // If this match just got a winner, process bets and update next round
         if (match.winner && !previousMatch?.winner) {
           // Get all bets for this match
           const matchBets = await this.getBracketBets(bracket.id);
-          const roundBets = matchBets.filter(bet => bet.round === currentRound);
+          const roundBets = matchBets.filter(bet => 
+            bet.round === currentRound && 
+            bet.matchNumber === match.matchNumber
+          );
 
           if (roundBets.length > 0) {
             // Calculate total pool and winning pool
@@ -159,31 +162,62 @@ export class MemStorage {
               }
             }
           }
+
+          // Update next round match with this winner
+          // Find the next round match that should receive this winner
+          const nextRoundMatch = structure.find(
+            m => m.round === currentRound + 1 && 
+                 m.position === Math.floor(match.position / 2)
+          );
+
+          if (nextRoundMatch) {
+            // Determine if this winner should be player1 or player2 based on position
+            if (match.position % 2 === 0) {
+              nextRoundMatch.player1 = match.winner;
+            } else {
+              nextRoundMatch.player2 = match.winner;
+            }
+          }
         }
       }
 
       // Only update next round matches when transitioning to betting phase
       if (updates.phase === 'betting') {
-        // Find completed match pairs and update next round
-        for (let i = 0; i < currentRoundMatches.length; i += 2) {
-          const match1 = currentRoundMatches[i];
-          const match2 = currentRoundMatches[i + 1];
-
-          if (match1?.winner && match2?.winner) {
-            const nextRoundMatch = structure.find(
-              m => m.round === currentRound + 1 && m.position === Math.floor(i / 2)
+        // Find the next match in sequence (sorted by matchNumber)
+        const nextMatch = structure.find(
+          m => m.round === currentRound && 
+               !m.winner && 
+               m.player1 && 
+               m.player2 && 
+               m.matchNumber !== null && 
+               bracket.currentMatchNumber !== null &&
+               m.matchNumber > bracket.currentMatchNumber
+        );
+        
+        if (nextMatch && nextMatch.matchNumber !== null) {
+          // Move to the next match
+          updates.currentMatchNumber = nextMatch.matchNumber;
+        } else {
+          // No more matches in this round with players, check if we need to advance round
+          const anyUnplayedInRound = structure.find(
+            m => m.round === currentRound && !m.winner
+          );
+          
+          if (!anyUnplayedInRound) {
+            // All matches in current round complete, advance to next round
+            updates.currentRound = currentRound + 1;
+            
+            // Find first match in next round
+            const firstMatchInNextRound = structure.find(
+              m => m.round === currentRound + 1 && 
+                   m.player1 && 
+                   m.player2
             );
-            if (nextRoundMatch) {
-              nextRoundMatch.player1 = match1.winner;
-              nextRoundMatch.player2 = match2.winner;
+            
+            if (firstMatchInNextRound && firstMatchInNextRound.matchNumber !== null) {
+              updates.currentMatchNumber = firstMatchInNextRound.matchNumber;
             }
           }
-        }
-
-        // Check if current round is complete
-        const allMatchesComplete = currentRoundMatches.every(match => match.winner);
-        if (allMatchesComplete) {
-          updates.currentRound = currentRound + 1;
         }
       }
 
