@@ -132,14 +132,14 @@ export class MemStorage {
       const currentRoundMatches = structure.filter(m => m.round === currentRound);
       const previousStructure = JSON.parse(bracket.structure as string) as Match[];
 
-      // Process any new winners
+      // Process any new or changed winners
       for (const match of structure) {
         const previousMatch = previousStructure.find(
           m => m.round === match.round && m.position === match.position
         );
 
-        // If this match just got a winner, update next round
-        if (match.winner && !previousMatch?.winner) {
+        // If this match just got a winner or the winner changed
+        if (match.winner && (!previousMatch?.winner || previousMatch.winner !== match.winner)) {
           console.log(`Match in round ${match.round}, position ${match.position} got winner: ${match.winner}`);
           
           // Find the next round match that should receive this winner
@@ -151,9 +151,19 @@ export class MemStorage {
           if (nextRoundMatch) {
             // Determine if this winner should be player1 or player2 based on position
             if (match.position % 2 === 0) {
-              nextRoundMatch.player1 = match.winner;
+              // If the previous winner was already propagated, update it
+              if (previousMatch?.winner && nextRoundMatch.player1 === previousMatch.winner) {
+                nextRoundMatch.player1 = match.winner;
+              } else {
+                nextRoundMatch.player1 = match.winner;
+              }
             } else {
-              nextRoundMatch.player2 = match.winner;
+              // If the previous winner was already propagated, update it
+              if (previousMatch?.winner && nextRoundMatch.player2 === previousMatch.winner) {
+                nextRoundMatch.player2 = match.winner;
+              } else {
+                nextRoundMatch.player2 = match.winner;
+              }
             }
             console.log(`Updated next round match: Round ${nextRoundMatch.round}, Position ${nextRoundMatch.position}, Player1: ${nextRoundMatch.player1}, Player2: ${nextRoundMatch.player2}`);
           }
