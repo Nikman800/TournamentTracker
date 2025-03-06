@@ -62,6 +62,12 @@ function getLastCompletedMatch(bracket: Bracket): Match | null {
   return null;
 }
 
+// Add this function to check if the current match has a winner
+function hasCurrentMatchWinner(bracket: Bracket): boolean {
+  const currentMatch = getCurrentMatch(bracket);
+  return !!currentMatch?.winner;
+}
+
 export default function BracketPage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -235,14 +241,12 @@ export default function BracketPage() {
                 End Betting Phase
               </Button>
             ) : (
-              lastCompletedMatch && (
-                <Button
-                  onClick={() => updatePhaseMutation.mutate("betting")}
-                  disabled={updatePhaseMutation.isPending}
-                >
-                  Start Next Match
-                </Button>
-              )
+              <Button
+                onClick={() => updatePhaseMutation.mutate("betting")}
+                disabled={updatePhaseMutation.isPending || !hasCurrentMatchWinner(bracket)}
+              >
+                Start Next Match
+              </Button>
             )}
           </div>
         )}

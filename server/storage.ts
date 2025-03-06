@@ -132,41 +132,19 @@ export class MemStorage {
       const currentRoundMatches = structure.filter(m => m.round === currentRound);
       const previousStructure = JSON.parse(bracket.structure as string) as Match[];
 
-      for (const match of currentRoundMatches) {
+      // Process any new winners
+      for (const match of structure) {
         const previousMatch = previousStructure.find(
           m => m.round === match.round && m.position === match.position
         );
 
-        // If this match just got a winner, process bets and update next round
+        // If this match just got a winner, update next round
         if (match.winner && !previousMatch?.winner) {
-          // Get all bets for this match
-          const matchBets = await this.getBracketBets(bracket.id);
-          const roundBets = matchBets.filter(bet => 
-            bet.round === currentRound && 
-            bet.matchNumber === match.matchNumber
-          );
-
-          if (roundBets.length > 0) {
-            // Calculate total pool and winning pool
-            const totalPool = roundBets.reduce((sum, bet) => sum + bet.amount, 0);
-            const winningBets = roundBets.filter(bet => bet.selectedWinner === match.winner);
-            const winningPool = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
-
-            // Distribute winnings to correct bets
-            for (const bet of winningBets) {
-              const winningAmount = Math.floor((bet.amount / winningPool) * totalPool);
-              if (bracket.useIndependentCredits) {
-                await this.updateBracketBalance(bet.userId, bracket.id, winningAmount);
-              } else {
-                await this.updateUserCurrency(bet.userId, winningAmount);
-              }
-            }
-          }
-
-          // Update next round match with this winner
+          console.log(`Match in round ${match.round}, position ${match.position} got winner: ${match.winner}`);
+          
           // Find the next round match that should receive this winner
           const nextRoundMatch = structure.find(
-            m => m.round === currentRound + 1 && 
+            m => m.round === match.round + 1 && 
                  m.position === Math.floor(match.position / 2)
           );
 
@@ -177,11 +155,12 @@ export class MemStorage {
             } else {
               nextRoundMatch.player2 = match.winner;
             }
+            console.log(`Updated next round match: Round ${nextRoundMatch.round}, Position ${nextRoundMatch.position}, Player1: ${nextRoundMatch.player1}, Player2: ${nextRoundMatch.player2}`);
           }
         }
       }
 
-      // Only update next round matches when transitioning to betting phase
+      // Only update match progression when transitioning to betting phase
       if (updates.phase === 'betting') {
         // Find the next match in sequence (sorted by matchNumber)
         const nextMatch = structure.find(
@@ -197,25 +176,33 @@ export class MemStorage {
         if (nextMatch && nextMatch.matchNumber !== null) {
           // Move to the next match
           updates.currentMatchNumber = nextMatch.matchNumber;
+          console.log(`Moving to next match in same round: ${nextMatch.matchNumber}`);
         } else {
           // No more matches in this round with players, check if we need to advance round
           const anyUnplayedInRound = structure.find(
-            m => m.round === currentRound && !m.winner
+            m => m.round === currentRound && !m.winner && m.player1 && m.player2
           );
           
           if (!anyUnplayedInRound) {
             // All matches in current round complete, advance to next round
-            updates.currentRound = currentRound + 1;
+            const nextRound = currentRound + 1;
+            updates.currentRound = nextRound;
             
             // Find first match in next round
             const firstMatchInNextRound = structure.find(
-              m => m.round === currentRound + 1 && 
+              m => m.round === nextRound && 
                    m.player1 && 
                    m.player2
             );
             
             if (firstMatchInNextRound && firstMatchInNextRound.matchNumber !== null) {
               updates.currentMatchNumber = firstMatchInNextRound.matchNumber;
+              console.log(`Advancing to round ${nextRound}, match ${firstMatchInNextRound.matchNumber}`);
+            } else {
+              console.log(`No valid matches found in round ${nextRound}`);
+              // Debug: print all matches in the next round
+              const nextRoundMatches = structure.filter(m => m.round === nextRound);
+              console.log(`Matches in round ${nextRound}:`, JSON.stringify(nextRoundMatches, null, 2));
             }
           }
         }
