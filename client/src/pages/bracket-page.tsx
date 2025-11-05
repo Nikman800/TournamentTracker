@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { BracketViewer } from "@/components/bracket-viewer";
 import { BettingPanel } from "@/components/betting-panel";
@@ -82,6 +82,7 @@ function isFinalMatch(bracket: Bracket): boolean {
 
 export default function BracketPage() {
   const { id } = useParams();
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<MatchWithNumber | null>(null);
@@ -189,6 +190,30 @@ export default function BracketPage() {
     },
   });
 
+  const endTournamentMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/brackets/${id}`, {
+        status: "completed"
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/brackets/${id}`] });
+      toast({
+        title: "Tournament Ended",
+        description: "The tournament has been ended by the admin.",
+      });
+      setLocation(`/bracket/${id}/results`);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to End Tournament",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const { data: bets } = useQuery<Bet[]>({
     queryKey: [`/api/brackets/${id}/bets`],
     enabled: !!id && !!bracket && bracket.status === "active",
@@ -244,50 +269,63 @@ export default function BracketPage() {
           </Button>
         )}
         {isCreator && bracket.status === "active" && (
-          <div className="space-x-2">
-            {bracket.phase === "betting" ? (
-              <Button
-                onClick={() => updatePhaseMutation.mutate("game")}
-                disabled={updatePhaseMutation.isPending}
-              >
-                End Betting Phase
-              </Button>
-            ) : (
-              isFinalMatch(bracket) ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (confirm("Are you sure you want to end the tournament? This action cannot be undone.")) {
+                  endTournamentMutation.mutate();
+                }
+              }}
+              disabled={endTournamentMutation.isPending}
+            >
+              End Tournament
+            </Button>
+            <div className="space-x-2">
+              {bracket.phase === "betting" ? (
                 <Button
-                  onClick={() => {
-                    // First ensure the match has a winner
-                    if (hasCurrentMatchWinner(bracket)) {
-                      // Then update the bracket status to "completed"
-                      apiRequest("PATCH", `/api/brackets/${id}`, {
-                        status: "completed"
-                      }).then(() => {
-                        // Navigate to results page
-                        window.location.href = `/bracket/${id}/results`;
-                      });
-                    } else {
-                      toast({
-                        title: "Select a Winner",
-                        description: "Please select a winner for the final match before finishing the bracket.",
-                        variant: "destructive"
-                      });
-                    }
-                  }}
-                  disabled={!hasCurrentMatchWinner(bracket)}
-                  className="ml-auto"
+                  onClick={() => updatePhaseMutation.mutate("game")}
+                  disabled={updatePhaseMutation.isPending}
                 >
-                  Finish Bracket
+                  End Betting Phase
                 </Button>
               ) : (
-                <Button
-                  onClick={() => updatePhaseMutation.mutate("betting")}
-                  disabled={updatePhaseMutation.isPending || !hasCurrentMatchWinner(bracket)}
-                  className="ml-auto"
-                >
-                  Start Next Match
-                </Button>
-              )
-            )}
+                isFinalMatch(bracket) ? (
+                  <Button
+                    onClick={() => {
+                      // First ensure the match has a winner
+                      if (hasCurrentMatchWinner(bracket)) {
+                        // Then update the bracket status to "completed"
+                        apiRequest("PATCH", `/api/brackets/${id}`, {
+                          status: "completed"
+                        }).then(() => {
+                          // Navigate to results page
+                          window.location.href = `/bracket/${id}/results`;
+                        });
+                      } else {
+                        toast({
+                          title: "Select a Winner",
+                          description: "Please select a winner for the final match before finishing the bracket.",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                    disabled={!hasCurrentMatchWinner(bracket)}
+                    className="ml-auto"
+                  >
+                    Finish Bracket
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => updatePhaseMutation.mutate("betting")}
+                    disabled={updatePhaseMutation.isPending || !hasCurrentMatchWinner(bracket)}
+                    className="ml-auto"
+                  >
+                    Start Next Match
+                  </Button>
+                )
+              )}
+            </div>
           </div>
         )}
       </div>
