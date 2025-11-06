@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic, log, closeVite } from "./vite";
+import type { Socket } from "net";
 import 'dotenv/config';
 
 const app = express();
@@ -48,6 +49,16 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // Track active connections
+  const connections = new Set<Socket>();
+  
+  server.on('connection', (socket) => {
+    connections.add(socket);
+    socket.on('close', () => {
+      connections.delete(socket);
+    });
+  });
+
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
@@ -55,18 +66,39 @@ app.use((req, res, next) => {
   }
 
   // Add graceful shutdown handler
-  function shutdownGracefully() {
+  async function shutdownGracefully() {
     log('Shutting down gracefully...');
+    
+    // Close Vite server first (in development mode)
+    if (app.get("env") === "development") {
+      try {
+        await closeVite();
+        log('Vite server closed');
+      } catch (error) {
+        log(`Error closing Vite: ${error}`);
+      }
+    }
+
+    // Close all active connections immediately
+    connections.forEach((socket) => {
+      socket.destroy();
+    });
+
+    // Close the server
     server.close(() => {
       log('Server closed');
       process.exit(0);
     });
 
-    // Force shutdown after 5 seconds if server hasn't closed
+    // Force shutdown after 2 seconds if server hasn't closed
     setTimeout(() => {
       log('Could not close connections in time, forcefully shutting down');
+      // Destroy any remaining connections
+      connections.forEach((socket) => {
+        socket.destroy();
+      });
       process.exit(1);
-    }, 5000);
+    }, 2000);
   }
 
   // Listen for termination signals

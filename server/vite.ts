@@ -22,6 +22,8 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+let viteInstance: Awaited<ReturnType<typeof createViteServer>> | null = null;
+
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
@@ -42,6 +44,8 @@ export async function setupVite(app: Express, server: Server) {
     server: serverOptions,
     appType: "custom",
   });
+
+  viteInstance = vite;
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
@@ -68,6 +72,13 @@ export async function setupVite(app: Express, server: Server) {
       next(e);
     }
   });
+}
+
+export async function closeVite() {
+  if (viteInstance) {
+    await viteInstance.close();
+    viteInstance = null;
+  }
 }
 
 export function serveStatic(app: Express) {
