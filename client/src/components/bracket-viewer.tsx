@@ -18,18 +18,16 @@ export function BracketViewer({
     return acc;
   }, {} as Record<number, Match[]>);
 
-  // Filter out rounds where all matches have no players
-  const visibleRounds = Object.entries(rounds).filter(([_, roundMatches]) =>
-    roundMatches.some(match => match.player1 || match.player2)
-  );
+  // Show all rounds from the start, even if empty
+  const allRounds = Object.entries(rounds).sort(([a], [b]) => parseInt(a) - parseInt(b));
 
   return (
     <div className="flex gap-8 p-4 overflow-x-auto">
-      {visibleRounds.map(([round, matches]) => (
+      {allRounds.map(([round, matches]) => (
         <div key={round} className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-center">
             {parseInt(round) === 0 ? "First Round" : 
-             parseInt(round) === visibleRounds.length - 1 ? "Final" : 
+             parseInt(round) === allRounds.length - 1 ? "Final" : 
              `Round ${parseInt(round) + 1}`}
           </h3>
           <div className="flex flex-col gap-8">
