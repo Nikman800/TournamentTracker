@@ -80,13 +80,15 @@ export function registerRoutes(app: Express): Server {
       }
     }
 
-    // In server/routes.ts - Modify the phase transition logic
+    // Handle phase transition from game to betting (advancing to next match)
     if (bracket.phase === "game" && req.body.phase === "betting") {
       const structure = JSON.parse(bracket.structure as string);
       const currentRound = bracket.currentRound || 0;
       const currentMatchNumber = bracket.currentMatchNumber || 1;
       
-      // Find the next match in sequence (sorted by matchNumber)
+      console.log(`Looking for next match after match ${currentMatchNumber} in round ${currentRound}`);
+      
+      // Find the next match in sequence (by matchNumber, not just in current round)
       const nextMatch = structure.find(
         (match: Match) => 
           !match.winner && 
@@ -97,31 +99,17 @@ export function registerRoutes(app: Express): Server {
       );
       
       if (nextMatch) {
-        // Move to the next match
+        // Move to the next match (could be same round or next round)
         req.body.currentMatchNumber = nextMatch.matchNumber;
-        console.log(`Moving to next match: ${nextMatch.matchNumber}`);
+        req.body.currentRound = nextMatch.round;
+        console.log(`Moving to next match: ${nextMatch.matchNumber} in round ${nextMatch.round}`);
       } else {
-        // No more matches in this round with players, check if we need to advance round
-        const anyUnplayedInRound = structure.find(
-          (match: Match) => match.round === currentRound && !match.winner
-        );
-        
-        if (!anyUnplayedInRound) {
-          // All matches in current round complete, advance to next round
-          req.body.currentRound = currentRound + 1;
-          
-          // Find first match in next round
-          const firstMatchInNextRound = structure.find(
-            (match: Match) => 
-              match.round === currentRound + 1 && 
-              match.player1 && 
-              match.player2
-          );
-          
-          if (firstMatchInNextRound) {
-            req.body.currentMatchNumber = firstMatchInNextRound.matchNumber;
-            console.log(`Advancing to round ${currentRound + 1}, match ${firstMatchInNextRound.matchNumber}`);
-          }
+        console.log(`No more matches found after match ${currentMatchNumber}`);
+        // Tournament might be complete
+        const allMatches = structure.filter((m: Match) => m.player1 && m.player2);
+        const allComplete = allMatches.every((m: Match) => m.winner);
+        if (allComplete) {
+          console.log("All matches complete - tournament should be finished");
         }
       }
     }

@@ -18,41 +18,57 @@ export function BracketViewer({
     return acc;
   }, {} as Record<number, Match[]>);
 
+  // Filter out rounds where all matches have no players
+  const visibleRounds = Object.entries(rounds).filter(([_, roundMatches]) =>
+    roundMatches.some(match => match.player1 || match.player2)
+  );
+
   return (
     <div className="flex gap-8 p-4 overflow-x-auto">
-      {Object.entries(rounds).map(([round, matches]) => (
+      {visibleRounds.map(([round, matches]) => (
         <div key={round} className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-center">
-            Round {parseInt(round) + 1}
+            {parseInt(round) === 0 ? "First Round" : 
+             parseInt(round) === visibleRounds.length - 1 ? "Final" : 
+             `Round ${parseInt(round) + 1}`}
           </h3>
           <div className="flex flex-col gap-8">
             {matches.map((match) => (
               <Card
-                key={match.id}
+                key={match.matchNumber}
                 className={`w-48 ${
-                  isCreator && !match.winner ? "cursor-pointer" : ""
+                  isCreator && !match.winner && match.player1 && match.player2 ? "cursor-pointer hover:shadow-md transition-shadow" : ""
                 }`}
-                onClick={() => isCreator && onMatchClick?.(match)}
+                onClick={() => isCreator && match.player1 && match.player2 && onMatchClick?.(match)}
               >
                 <CardContent className="p-4">
+                  <div className="text-xs text-muted-foreground mb-2 text-center">
+                    Match {match.matchNumber}
+                  </div>
                   <div
                     className={`mb-2 p-2 rounded ${
                       match.winner === match.player1
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary text-primary-foreground font-semibold"
                         : "bg-muted"
                     }`}
                   >
                     {match.player1 || "TBD"}
                   </div>
+                  <div className="text-center text-xs text-muted-foreground my-1">vs</div>
                   <div
                     className={`p-2 rounded ${
                       match.winner === match.player2
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary text-primary-foreground font-semibold"
                         : "bg-muted"
                     }`}
                   >
                     {match.player2 || "TBD"}
                   </div>
+                  {match.winner && (
+                    <div className="mt-2 text-xs text-center text-primary font-semibold">
+                      Winner: {match.winner}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

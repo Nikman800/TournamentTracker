@@ -344,42 +344,98 @@ export default function BracketCreate() {
 }
 
 function generateBracketStructure(players: string[]) {
-  const totalPlayers = Math.pow(2, Math.ceil(Math.log2(players.length)));
-  const filledPlayers = [
-    ...players,
-    ...Array(totalPlayers - players.length).fill("BYE"),
-  ];
-
+  if (players.length === 0) return [];
+  
+  const numPlayers = players.length;
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(numPlayers)));
+  const numByes = bracketSize - numPlayers;
+  
+  // Calculate: how many players compete in round 0 vs get byes
+  // General logic works for any number of participants:
+  // - Round up to next power of 2 to get bracket size
+  // - Calculate byes needed (bracketSize - numPlayers)
+  // - Players without byes compete in round 0
+  // - Players with byes skip to round 1
+  const playersCompetingInRound0 = numPlayers - numByes; // Must be even
+  const firstRoundMatches = playersCompetingInRound0 / 2;
+  
   const matches = [];
-  let round = 0;
-  let position = 0;
-  let matchNumber = 1; // Initialize match number counter
-
-  // First round matches
-  for (let i = 0; i < filledPlayers.length; i += 2) {
+  let matchNumber = 1;
+  
+  // Round 0: Only players who compete (no byes)
+  // Creates matches for pairs of competing players
+  for (let i = 0; i < firstRoundMatches; i++) {
     matches.push({
-      round,
-      position: position++,
-      player1: filledPlayers[i],
-      player2: filledPlayers[i + 1],
-      winner: filledPlayers[i + 1] === "BYE" ? filledPlayers[i] : null,
-      matchNumber: matchNumber++, // Assign and increment match number
+      round: 0,
+      position: i,
+      player1: players[i * 2],
+      player2: players[i * 2 + 1],
+      winner: null,
+      matchNumber: matchNumber++,
     });
   }
-
-  // Subsequent rounds
-  const totalRounds = Math.log2(totalPlayers);
-  for (let r = 1; r < totalRounds; r++) {
-    position = 0;
-    const matchesInRound = totalPlayers / Math.pow(2, r + 1);
+  
+  // Round 1: Winners from round 0 matches + players with byes
+  // Round 1 always has bracketSize / 4 matches (half the bracket size)
+  const round1MatchCount = bracketSize / 4;
+  
+  // Get the bye recipients (players who skipped round 0)
+  const byeRecipients = players.slice(playersCompetingInRound0);
+  
+  // Round 1 needs to pair:
+  // 1. Winners from Round 0 matches with bye recipients
+  // 2. Remaining bye recipients with each other
+  // Total players in Round 1 = firstRoundMatches (winners) + numByes (bye recipients)
+  
+  let byeIndex = 0; // Track which bye recipient we're placing
+  
+  for (let i = 0; i < round1MatchCount; i++) {
+    let player1 = null;
+    let player2 = null;
+    
+    // First, pair Round 0 winners with bye recipients
+    if (i < firstRoundMatches && byeIndex < byeRecipients.length) {
+      // This match gets: bye recipient vs winner from Round 0 match at position i
+      player1 = byeRecipients[byeIndex++];
+      // player2 will be filled by winner from Round 0 match at position i
+    } else if (byeIndex < byeRecipients.length) {
+      // All Round 0 winners have been paired, now pair remaining bye recipients
+      // Pair bye recipients with each other
+      if (byeIndex < byeRecipients.length) {
+        player1 = byeRecipients[byeIndex++];
+      }
+      if (byeIndex < byeRecipients.length) {
+        player2 = byeRecipients[byeIndex++];
+      }
+    } else {
+      // All bye recipients placed, remaining matches get two Round 0 winners
+      // (This case shouldn't happen with proper bracket math, but handle it)
+      // Both slots will be filled by Round 0 winners
+    }
+    
+    matches.push({
+      round: 1,
+      position: i,
+      player1: player1,
+      player2: player2,
+      winner: null,
+      matchNumber: matchNumber++,
+    });
+  }
+  
+  // Subsequent rounds: standard elimination (each round halves the field)
+  // Round 2: 2 winners from round 1 → 1 final match
+  const totalRounds = Math.log2(bracketSize);
+  for (let r = 2; r < totalRounds; r++) {
+    const matchesInRound = bracketSize / Math.pow(2, r + 1);
     for (let m = 0; m < matchesInRound; m++) {
       matches.push({
         round: r,
-        position: position++,
+        position: m,
         player1: null,
         player2: null,
         winner: null,
-        matchNumber: matchNumber++, // Assign and increment match number
+        matchNumber: matchNumber++,
       });
     }
   }
