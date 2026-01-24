@@ -132,6 +132,19 @@ export class MemStorage {
       const currentRoundMatches = structure.filter(m => m.round === currentRound);
       const previousStructure = JSON.parse(bracket.structure as string) as Match[];
 
+      const round0Players = new Set(
+        structure
+          .filter(m => m.round === 0)
+          .flatMap(m => [m.player1, m.player2])
+          .filter((player): player is string => !!player)
+      );
+      const round1Matches = structure.filter(m => m.round === 1);
+      const hasByes = round1Matches.some(
+        (m) =>
+          (m.player1 && !round0Players.has(m.player1)) ||
+          (m.player2 && !round0Players.has(m.player2))
+      );
+
       // Process any new or changed winners
       for (const match of structure) {
         const previousMatch = previousStructure.find(
@@ -150,10 +163,6 @@ export class MemStorage {
           // When byes exist: Round 1 matches have bye recipients pre-filled in player1 slots
           // When no byes: Round 1 matches are empty (standard bracket tree applies)
           if (match.round === 0) {
-            // Check if next round has any matches with players already filled (indicating byes)
-            const nextRoundMatches = structure.filter(m => m.round === match.round + 1);
-            const hasByes = nextRoundMatches.some(m => m.player1 || m.player2);
-            
             if (hasByes) {
               // Byes exist: Use direct position mapping
               // Round 0 position 0 → Round 1 position 0 (bye recipient is player1, winner is player2)
