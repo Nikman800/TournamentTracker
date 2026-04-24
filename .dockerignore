@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.env
+.env.*
+.replit
+.vscode
+.cursor
+attached_assets
+*.log
+*.md
+!README.md

@@ -52,3 +52,12 @@ There is already a **Postgres + Drizzle config** (`drizzle.config.ts`) and schem
 
 See `RUNNING.md` for a step-by-step guide (Windows/PowerShell friendly).
 
+## Self-hosting
+
+You can run your own instance so others use your server instead of you hosting it centrally. **Docker** and **manual Node** options are in `SELF-HOSTING.md`. Highlights:
+
+- **Docker Compose:** `docker compose up -d` (set `SESSION_SECRET` in `.env` for production).
+- **Manual:** `npm run build` then `npm run start` with `SESSION_SECRET` and `PORT` in `.env`.
+
+Storage is in-memory by default (data resets on restart). The guide also covers multi-account testing for betting and future streaming/Postgres options.
+

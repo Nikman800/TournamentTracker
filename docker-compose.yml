@@ -1,0 +1,32 @@
+# TournamentTracker — self‑host with one command
+# Storage is in-memory by default; data resets when the container restarts.
+# For persistent storage, a Postgres-backed storage layer would need to be implemented.
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      # Required in production: set a long random secret for sessions
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+    restart: unless-stopped
+
+  # --- Optional: Postgres (for when Postgres storage is implemented) ---
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: tt
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+  #     POSTGRES_DB: tournament_tracker
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  # app:
+  #   environment:
+  #     - DATABASE_URL=postgres://tt:${DB_PASSWORD:-changeme}@db:5432/tournament_tracker
+
+# volumes:
+#   pgdata:

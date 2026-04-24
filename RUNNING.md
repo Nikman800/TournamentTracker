@@ -26,7 +26,9 @@ The app will run without any env vars for local demo usage.
 
 Optional:
 
-- **`REPL_ID`**: used as the session secret (falls back to `local-dev-secret` if not set)
+- **`SESSION_SECRET`**: session signing secret (recommended for any non-local run). Falls back to `REPL_ID`, then `local-dev-secret`.
+- **`REPL_ID`**: alternative to `SESSION_SECRET` (e.g. on Replit).
+- **`PORT`**: port to listen on (default `5000`).
 
 Database-related (only required if you want to use Drizzle migrations):
 
@@ -39,6 +41,10 @@ Create a file named `.env` in the repo root:
 ```env
 # Optional
 REPL_ID=some-long-random-secret
+
+# Optional for self-hosted / production
+SESSION_SECRET=your-long-random-secret
+PORT=5000
 
 # Only needed for drizzle-kit commands
 DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME

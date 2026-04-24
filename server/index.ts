@@ -105,8 +105,8 @@ app.use((req, res, next) => {
   process.on('SIGTERM', shutdownGracefully);
   process.on('SIGINT', shutdownGracefully);
 
-  // Start the server with error handling
-  const PORT = 5000;
+  // Start the server with error handling (PORT configurable for self-hosting)
+  const PORT = parseInt(process.env.PORT || "5000", 10);
   function startServer() {
     server.listen(PORT, "0.0.0.0", () => {
       log(`Server running on port ${PORT}`);
