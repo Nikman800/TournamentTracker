@@ -19,7 +19,7 @@ function Router() {
       <ProtectedRoute path="/brackets/new" component={BracketCreate} />
       <ProtectedRoute path="/brackets/:id" component={BracketPage} />
       <Route path="/auth" component={AuthPage} />
-      <Route path="/bracket/:id/results" component={BracketResultsPage} />
+      <ProtectedRoute path="/bracket/:id/results" component={BracketResultsPage} />
       <Route component={NotFound} />
     </Switch>
   );

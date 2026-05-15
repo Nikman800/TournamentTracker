@@ -19,6 +19,13 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
+const FORMAT_LABELS: Record<string, string> = {
+  single_elimination: "Single Elimination",
+  double_elimination: "Double Elimination",
+  round_robin: "Round Robin",
+  group_stage: "Group Stage",
+};
+
 // We can keep this type for backward compatibility, but it's now redundant
 type MatchWithNumber = Match;
 
@@ -87,6 +94,7 @@ export default function BracketPage() {
   const { toast } = useToast();
   const [selectedMatch, setSelectedMatch] = useState<MatchWithNumber | null>(null);
   const [currentMatchNumber, setCurrentMatchNumber] = useState<number | undefined>(undefined);
+  const [isActive, setIsActive] = useState(false);
 
   const { data: bracket, isLoading: bracketLoading } = useQuery<Bracket>({
     queryKey: [`/api/brackets/${id}`],
@@ -96,7 +104,15 @@ export default function BracketPage() {
     },
     enabled: !!id,
     staleTime: 0,
+    refetchInterval: isActive ? 5000 : false,
+    refetchIntervalInBackground: false,
   });
+
+  useEffect(() => {
+    if (bracket) {
+      setIsActive(bracket.status === "active");
+    }
+  }, [bracket?.status]);
 
   useEffect(() => {
     if (bracket) {
@@ -218,7 +234,15 @@ export default function BracketPage() {
     queryKey: [`/api/brackets/${id}/bets`],
     enabled: !!id && !!bracket && bracket.status === "active",
     staleTime: 0,
+    refetchInterval: isActive ? 5000 : false,
+    refetchIntervalInBackground: false,
   });
+
+  const { data: membershipData } = useQuery<{ joined: boolean }>({
+    queryKey: [`/api/brackets/${id}/joined`],
+    enabled: !!id && !!bracket,
+  });
+  const isEligibleBettor = membershipData?.joined ?? bracket?.isPublic ?? false;
 
   if (bracketLoading) {
     return (
@@ -249,6 +273,7 @@ export default function BracketPage() {
           <h1 className="text-4xl font-bold mb-2">{bracket.name}</h1>
           <p className="text-muted-foreground">
             Status: <span className="capitalize">{bracket.status}</span>
+            {" "}• {FORMAT_LABELS[bracket.bracketFormat ?? "single_elimination"] ?? bracket.bracketFormat}
             {bracket.status === "active" && bracket.phase && (
               <>
                  {" "}
@@ -406,6 +431,8 @@ export default function BracketPage() {
               : undefined
           }
           isCreator={isCreator}
+          bracketFormat={bracket.bracketFormat ?? "single_elimination"}
+          bracketId={bracket.id}
         />
 
         <div className="space-y-8">
@@ -418,7 +445,7 @@ export default function BracketPage() {
             </div>
           ) : bracket.status === "active" ? (
             <>
-              {bracket.phase === "betting" && currentMatch && (
+              {bracket.phase === "betting" && currentMatch && isEligibleBettor && (
                 <BettingPanel
                   bracket={bracket}
                   userCurrency={user?.virtualCurrency!}

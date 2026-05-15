@@ -25,6 +25,25 @@ export const brackets = pgTable("brackets", {
   startingCredits: integer("starting_credits"), // Optional starting credits for private brackets
   useIndependentCredits: boolean("use_independent_credits").default(false),
   adminCanBet: boolean("admin_can_bet").default(false),
+  bracketFormat: text("bracket_format").notNull().default("single_elimination"),
+  numGroups: integer("num_groups"),
+  advanceCount: integer("advance_count"),
+});
+
+export const bracketMembers = pgTable("bracket_members", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  bracketId: integer("bracket_id").notNull(),
+});
+
+export const standings = pgTable("standings", {
+  id: serial("id").primaryKey(),
+  bracketId: integer("bracket_id").notNull(),
+  participant: text("participant").notNull(),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  points: integer("points").notNull().default(0),
+  groupId: integer("group_id"),
 });
 
 export const bracketBalances = pgTable("bracket_balances", {
@@ -68,7 +87,13 @@ export const insertBracketSchema = createInsertSchema(brackets).pick({
   startingCredits: true,
   useIndependentCredits: true,
   adminCanBet: true,
+  bracketFormat: true,
+  numGroups: true,
+  advanceCount: true,
 });
+
+export const insertBracketMemberSchema = createInsertSchema(bracketMembers);
+export const insertStandingSchema = createInsertSchema(standings);
 
 export const insertBracketBalanceSchema = createInsertSchema(bracketBalances);
 export const insertMatchSchema = createInsertSchema(matches);
@@ -80,3 +105,7 @@ export type Bracket = typeof brackets.$inferSelect;
 export type BracketBalance = typeof bracketBalances.$inferSelect;
 export type Match = typeof matches.$inferSelect;
 export type Bet = typeof bets.$inferSelect;
+export type Standing = typeof standings.$inferSelect;
+export type BracketMember = typeof bracketMembers.$inferSelect;
+export type InsertStanding = z.infer<typeof insertStandingSchema>;
+export type InsertBracketMember = z.infer<typeof insertBracketMemberSchema>;

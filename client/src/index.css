@@ -1,3 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
+
+:root {
+  --gamba-bg: #4FC3F7;
+  --gamba-navy: #1A1A4E;
+  --gamba-card-bg: #E8F7FF;
+  --gamba-yellow: #FFE600;
+  --gamba-green: #00C853;
+  --gamba-red: #FF4444;
+  --gamba-shadow: 3px 3px 0px #1A1A4E;
+  --gamba-border: 2px solid #1A1A4E;
+  --gamba-radius: 2px;
+}
+
+body {
+  background-color: var(--gamba-bg) !important;
+  color: var(--gamba-navy);
+}
+
+h1, h2, h3 {
+  font-family: 'Silkscreen', cursive !important;
+  color: var(--gamba-navy);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

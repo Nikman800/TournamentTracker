@@ -9,6 +9,7 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        gamba: "2px",
       },
       colors: {
         background: "hsl(var(--background))",
@@ -61,6 +62,20 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        gamba: {
+          bg: "#4FC3F7",
+          navy: "#1A1A4E",
+          card: "#E8F7FF",
+          yellow: "#FFE600",
+          green: "#00C853",
+          red: "#FF4444",
+        },
+      },
+      fontFamily: {
+        silkscreen: ["Silkscreen", "cursive"],
+      },
+      boxShadow: {
+        gamba: "3px 3px 0px #1A1A4E",
       },
       keyframes: {
         "accordion-down": {

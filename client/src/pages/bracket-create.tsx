@@ -1,7 +1,12 @@
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertBracketSchema } from "@shared/schema";
+import {
+  generateSingleElim,
+  generateDoubleElim,
+  generateRoundRobin,
+  generateGroupStage,
+} from "@shared/bracketGenerators";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +19,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -23,6 +35,13 @@ import { z } from "zod";
 import { useState } from "react";
 import { X } from "lucide-react";
 
+const FORMAT_LIMITS: Record<string, { min: number; max: number }> = {
+  single_elimination: { min: 2, max: 64 },
+  double_elimination: { min: 4, max: 32 },
+  round_robin: { min: 3, max: 16 },
+  group_stage: { min: 4, max: 32 },
+};
+
 const createBracketSchema = z.object({
   name: z.string().min(1, "Tournament name is required"),
   players: z.string().min(1, "Enter at least one player name"),
@@ -31,6 +50,9 @@ const createBracketSchema = z.object({
   startingCredits: z.number().min(1).optional(),
   useIndependentCredits: z.boolean().optional(),
   adminCanBet: z.boolean().optional(),
+  bracketFormat: z.enum(["single_elimination", "double_elimination", "round_robin", "group_stage"]).default("single_elimination"),
+  numGroups: z.number().min(2).max(8).default(2),
+  advanceCount: z.number().min(1).max(2).default(1),
 });
 
 type FormData = z.infer<typeof createBracketSchema>;
@@ -51,39 +73,56 @@ export default function BracketCreate() {
       startingCredits: 1000,
       useIndependentCredits: false,
       adminCanBet: false,
+      bracketFormat: "single_elimination",
+      numGroups: 2,
+      advanceCount: 1,
     },
   });
 
+  const bracketFormat = form.watch("bracketFormat");
+
   const createBracketMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      // Use participants array if available, otherwise fall back to comma-separated string
-      const players = participants.length > 0 
-        ? participants 
-        : data.players.split(",").map((p) => p.trim()).filter(Boolean);
-      const structure = generateBracketStructure(players);
+      const players =
+        participants.length > 0
+          ? participants
+          : data.players.split(",").map((p) => p.trim()).filter(Boolean);
 
-      const bracketData = {
+      let structure;
+      if (data.bracketFormat === "double_elimination") {
+        structure = generateDoubleElim(players);
+      } else if (data.bracketFormat === "round_robin") {
+        structure = generateRoundRobin(players);
+      } else if (data.bracketFormat === "group_stage") {
+        structure = generateGroupStage(players, data.numGroups, data.advanceCount);
+      } else {
+        structure = generateSingleElim(players);
+      }
+
+      const bracketData: Record<string, unknown> = {
         name: data.name,
         isPublic: data.isPublic,
         structure: JSON.stringify(structure),
-        status: "pending", // Explicitly set initial status
-        ...(data.isPublic ? {} : {
-          accessCode: data.accessCode,
-          startingCredits: data.useIndependentCredits ? data.startingCredits : null,
-          useIndependentCredits: data.useIndependentCredits,
-          adminCanBet: data.useIndependentCredits ? data.adminCanBet : false,
-        }),
+        bracketFormat: data.bracketFormat,
+        status: "pending",
+        ...(data.bracketFormat === "group_stage"
+          ? { numGroups: data.numGroups, advanceCount: data.advanceCount }
+          : {}),
+        ...(!data.isPublic
+          ? {
+              accessCode: data.accessCode,
+              startingCredits: data.useIndependentCredits ? data.startingCredits : null,
+              useIndependentCredits: data.useIndependentCredits,
+              adminCanBet: data.useIndependentCredits ? data.adminCanBet : false,
+            }
+          : {}),
       };
 
-      console.log("Creating bracket with data:", bracketData);
       const res = await apiRequest("POST", "/api/brackets", bracketData);
       const bracket = await res.json();
-      console.log("Created bracket:", bracket);
       return bracket;
     },
     onSuccess: async (bracket) => {
-      console.log("Successfully created bracket:", bracket);
-
       await queryClient.prefetchQuery({
         queryKey: [`/api/brackets/${bracket.id}`],
         queryFn: async () => {
@@ -102,7 +141,6 @@ export default function BracketCreate() {
       setLocation(`/brackets/${bracket.id}`);
     },
     onError: (error: Error) => {
-      console.error("Failed to create bracket:", error);
       toast({
         title: "Failed to create bracket",
         description: error.message,
@@ -119,6 +157,16 @@ export default function BracketCreate() {
       });
       return;
     }
+
+    const limits = FORMAT_LIMITS[data.bracketFormat];
+    if (participants.length < limits.min || participants.length > limits.max) {
+      form.setError("players", {
+        type: "manual",
+        message: `${data.bracketFormat.replace(/_/g, " ")} requires between ${limits.min} and ${limits.max} participants. You have ${participants.length}.`,
+      });
+      return;
+    }
+
     try {
       await createBracketMutation.mutateAsync(data);
     } catch (error) {
@@ -128,7 +176,7 @@ export default function BracketCreate() {
 
   return (
     <div className="container mx-auto p-6">
-      <Card className="max-w-2xl mx-auto">
+      <Card className="max-w-2xl mx-auto bg-gamba-card border-2 border-gamba-navy rounded-gamba shadow-gamba">
         <CardHeader>
           <CardTitle>Create Tournament Bracket</CardTitle>
         </CardHeader>
@@ -148,6 +196,94 @@ export default function BracketCreate() {
                   </FormItem>
                 )}
               />
+
+              {/* Format selector */}
+              <FormField
+                control={form.control}
+                name="bracketFormat"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bracket Format</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a format" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="single_elimination">Single Elimination</SelectItem>
+                        <SelectItem value="double_elimination">Double Elimination</SelectItem>
+                        <SelectItem value="round_robin">Round Robin</SelectItem>
+                        <SelectItem value="group_stage">Group Stage</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {bracketFormat === "single_elimination" && "2–64 participants"}
+                      {bracketFormat === "double_elimination" && "4–32 participants"}
+                      {bracketFormat === "round_robin" && "3–16 participants"}
+                      {bracketFormat === "group_stage" && "4–32 participants"}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Group stage options */}
+              {bracketFormat === "group_stage" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="numGroups"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Number of Groups</FormLabel>
+                        <Select
+                          onValueChange={(v) => field.onChange(Number(v))}
+                          defaultValue={String(field.value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                {n}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="advanceCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Participants Advancing per Group</FormLabel>
+                        <Select
+                          onValueChange={(v) => field.onChange(Number(v))}
+                          defaultValue={String(field.value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1">1</SelectItem>
+                            <SelectItem value="2">2</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
 
               <FormField
                 control={form.control}
@@ -180,7 +316,11 @@ export default function BracketCreate() {
                             </Badge>
                           ))}
                           <Input
-                            placeholder={participants.length === 0 ? "Enter participant name and press Enter" : ""}
+                            placeholder={
+                              participants.length === 0
+                                ? "Enter participant name and press Enter"
+                                : ""
+                            }
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={(e) => {
@@ -226,10 +366,7 @@ export default function BracketCreate() {
                       </FormDescription>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -250,9 +387,7 @@ export default function BracketCreate() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Required for private tournaments
-                        </FormDescription>
+                        <FormDescription>Required for private tournaments</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -266,7 +401,8 @@ export default function BracketCreate() {
                         <div className="space-y-0.5">
                           <FormLabel>Use Independent Credits</FormLabel>
                           <FormDescription>
-                            Participants will start with a fixed amount of credits specific to this tournament
+                            Participants will start with a fixed amount of credits specific to this
+                            tournament
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -330,7 +466,7 @@ export default function BracketCreate() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full bg-gamba-navy text-white border-2 border-gamba-navy shadow-gamba hover:translate-x-px hover:translate-y-px hover:shadow-none"
                 disabled={createBracketMutation.isPending}
               >
                 Create Tournament
@@ -341,104 +477,4 @@ export default function BracketCreate() {
       </Card>
     </div>
   );
-}
-
-function generateBracketStructure(players: string[]) {
-  if (players.length === 0) return [];
-  
-  const numPlayers = players.length;
-  const bracketSize = Math.pow(2, Math.ceil(Math.log2(numPlayers)));
-  const numByes = bracketSize - numPlayers;
-  
-  // Calculate: how many players compete in round 0 vs get byes
-  // General logic works for any number of participants:
-  // - Round up to next power of 2 to get bracket size
-  // - Calculate byes needed (bracketSize - numPlayers)
-  // - Players without byes compete in round 0
-  // - Players with byes skip to round 1
-  const playersCompetingInRound0 = numPlayers - numByes; // Must be even
-  const firstRoundMatches = playersCompetingInRound0 / 2;
-  
-  const matches = [];
-  let matchNumber = 1;
-  
-  // Round 0: Only players who compete (no byes)
-  // Creates matches for pairs of competing players
-  for (let i = 0; i < firstRoundMatches; i++) {
-    matches.push({
-      round: 0,
-      position: i,
-      player1: players[i * 2],
-      player2: players[i * 2 + 1],
-      winner: null,
-      matchNumber: matchNumber++,
-    });
-  }
-  
-  // Round 1: Winners from round 0 matches + players with byes
-  // Round 1 always has bracketSize / 4 matches (half the bracket size)
-  const round1MatchCount = bracketSize / 4;
-  
-  // Get the bye recipients (players who skipped round 0)
-  const byeRecipients = players.slice(playersCompetingInRound0);
-  
-  // Round 1 needs to pair:
-  // 1. Winners from Round 0 matches with bye recipients
-  // 2. Remaining bye recipients with each other
-  // Total players in Round 1 = firstRoundMatches (winners) + numByes (bye recipients)
-  
-  let byeIndex = 0; // Track which bye recipient we're placing
-  
-  for (let i = 0; i < round1MatchCount; i++) {
-    let player1 = null;
-    let player2 = null;
-    
-    // First, pair Round 0 winners with bye recipients
-    if (i < firstRoundMatches && byeIndex < byeRecipients.length) {
-      // This match gets: bye recipient vs winner from Round 0 match at position i
-      player1 = byeRecipients[byeIndex++];
-      // player2 will be filled by winner from Round 0 match at position i
-    } else if (byeIndex < byeRecipients.length) {
-      // All Round 0 winners have been paired, now pair remaining bye recipients
-      // Pair bye recipients with each other
-      if (byeIndex < byeRecipients.length) {
-        player1 = byeRecipients[byeIndex++];
-      }
-      if (byeIndex < byeRecipients.length) {
-        player2 = byeRecipients[byeIndex++];
-      }
-    } else {
-      // All bye recipients placed, remaining matches get two Round 0 winners
-      // (This case shouldn't happen with proper bracket math, but handle it)
-      // Both slots will be filled by Round 0 winners
-    }
-    
-    matches.push({
-      round: 1,
-      position: i,
-      player1: player1,
-      player2: player2,
-      winner: null,
-      matchNumber: matchNumber++,
-    });
-  }
-  
-  // Subsequent rounds: standard elimination (each round halves the field)
-  // Round 2: 2 winners from round 1 → 1 final match
-  const totalRounds = Math.log2(bracketSize);
-  for (let r = 2; r < totalRounds; r++) {
-    const matchesInRound = bracketSize / Math.pow(2, r + 1);
-    for (let m = 0; m < matchesInRound; m++) {
-      matches.push({
-        round: r,
-        position: m,
-        player1: null,
-        player2: null,
-        winner: null,
-        matchNumber: matchNumber++,
-      });
-    }
-  }
-
-  return matches;
 }

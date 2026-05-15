@@ -8,11 +8,82 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import { Plus, Trophy, CoinsIcon } from "lucide-react";
 import type { Bracket } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+
+const FORMAT_LABELS: Record<string, string> = {
+  single_elimination: "Single Elimination",
+  double_elimination: "Double Elimination",
+  round_robin: "Round Robin",
+  group_stage: "Group Stage",
+};
+
+function JoinBracketForm() {
+  const [bracketId, setBracketId] = useState("");
+  const [accessCode, setAccessCode] = useState("");
+  const [error, setError] = useState("");
+  const { toast } = useToast();
+
+  const joinMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/brackets/${bracketId}/join`, { accessCode });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to join bracket");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/brackets"] });
+      setBracketId("");
+      setAccessCode("");
+      setError("");
+      toast({ title: "Joined bracket!", description: "The bracket now appears in your list." });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  return (
+    <div className="mb-6 p-4 border rounded-lg">
+      <h3 className="font-semibold mb-3">Join a Private Bracket</h3>
+      <div className="flex gap-2 items-end flex-wrap">
+        <div>
+          <label className="text-sm text-muted-foreground block mb-1">Bracket ID</label>
+          <Input
+            type="number"
+            placeholder="ID"
+            value={bracketId}
+            onChange={(e) => setBracketId(e.target.value)}
+            className="w-24"
+          />
+        </div>
+        <div>
+          <label className="text-sm text-muted-foreground block mb-1">Access Code</label>
+          <Input
+            type="text"
+            placeholder="Access code"
+            value={accessCode}
+            onChange={(e) => setAccessCode(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <Button
+          onClick={() => joinMutation.mutate()}
+          disabled={!bracketId || !accessCode || joinMutation.isPending}
+        >
+          Join
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -73,10 +144,12 @@ export default function HomePage() {
         </Button>
       </div>
 
+      <JoinBracketForm />
+
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {brackets.map((bracket) => (
           <Link key={bracket.id} href={`/brackets/${bracket.id}`}>
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-gamba-card border-2 border-gamba-navy rounded-gamba shadow-gamba">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
@@ -90,6 +163,9 @@ export default function HomePage() {
                 <p className="text-sm">
                   Status:{" "}
                   <span className="capitalize font-medium">{bracket.status}</span>
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {FORMAT_LABELS[bracket.bracketFormat ?? "single_elimination"] ?? bracket.bracketFormat}
                 </p>
                 {!bracket.isPublic && (
                   <p className="text-sm text-muted-foreground mt-2">

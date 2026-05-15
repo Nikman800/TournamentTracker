@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertBracketSchema, insertBetSchema, type Match } from "@shared/schema";
+import { computePayouts } from "../shared/payoutEngine";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -19,6 +20,13 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Users
+  app.get("/api/users", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const users = await storage.listUsers();
+    res.json(users.map(({ password, ...rest }) => rest));
+  });
+
   // Brackets
   app.post("/api/brackets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -26,6 +34,30 @@ export function registerRoutes(app: Express): Server {
     const parsed = insertBracketSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
+    }
+
+    // Participant limit validation
+    const PARTICIPANT_LIMITS: Record<string, { min: number; max: number }> = {
+      single_elimination: { min: 2, max: 64 },
+      double_elimination: { min: 4, max: 32 },
+      round_robin: { min: 3, max: 16 },
+      group_stage: { min: 4, max: 32 },
+    };
+
+    const format = parsed.data.bracketFormat ?? "single_elimination";
+    const structure = JSON.parse(parsed.data.structure as string);
+    const allPlayers = new Set<string>();
+    for (const match of structure) {
+      if (match.player1) allPlayers.add(match.player1);
+      if (match.player2) allPlayers.add(match.player2);
+    }
+    const participantCount = allPlayers.size;
+    const limits = PARTICIPANT_LIMITS[format] ?? PARTICIPANT_LIMITS.single_elimination;
+
+    if (participantCount < limits.min || participantCount > limits.max) {
+      return res.status(400).json({
+        message: `${format} requires between ${limits.min} and ${limits.max} participants. Got ${participantCount}.`,
+      });
     }
 
     const bracket = await storage.createBracket({
@@ -117,6 +149,145 @@ export function registerRoutes(app: Express): Server {
     const updated = await storage.updateBracket(bracket.id, req.body);
     console.log("Updated bracket:", JSON.stringify(updated, null, 2));
 
+    // Trigger payout engine for newly-won matches
+    try {
+      const oldStructure = JSON.parse(bracket.structure as string) as Match[];
+      const newStructure = JSON.parse(updated.structure as string) as Match[];
+
+      for (const newMatch of newStructure) {
+        if (!newMatch.winner) continue;
+        const oldMatch = oldStructure.find(
+          (m) => m.matchNumber === newMatch.matchNumber
+        );
+        if (oldMatch && oldMatch.winner === newMatch.winner) continue;
+
+        // This match has a newly-recorded winner
+        const allBets = await storage.getBracketBets(bracketId);
+        const matchBets = allBets.filter(
+          (b) => b.matchNumber === newMatch.matchNumber
+        );
+        const pot = matchBets.reduce((sum, b) => sum + b.amount, 0);
+        const payouts = computePayouts(pot, matchBets, newMatch.winner);
+
+        for (const payout of payouts) {
+          if (updated.useIndependentCredits) {
+            await storage.updateBracketBalance(
+              payout.userId,
+              bracketId,
+              payout.amount
+            );
+          } else {
+            await storage.updateUserCurrency(payout.userId, payout.amount);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Payout engine error:", e);
+    }
+
+    // Update standings for round robin / group stage
+    try {
+      if (updated.bracketFormat === "round_robin" || updated.bracketFormat === "group_stage") {
+        const oldStructure = JSON.parse(bracket.structure as string) as any[];
+        const newStructure = JSON.parse(updated.structure as string) as any[];
+
+        for (const newMatch of newStructure) {
+          if (!newMatch.winner) continue;
+          const oldMatch = oldStructure.find((m: any) => m.matchNumber === newMatch.matchNumber);
+          if (oldMatch?.winner === newMatch.winner) continue;
+
+          const loser = newMatch.winner === newMatch.player1 ? newMatch.player2 : newMatch.player1;
+          if (!loser) continue;
+
+          const allStandings = await storage.getStandings(bracketId);
+          const winnerStanding = allStandings.find(
+            s => s.participant === newMatch.winner && s.groupId === (newMatch.groupId ?? null)
+          );
+          const loserStanding = allStandings.find(
+            s => s.participant === loser && s.groupId === (newMatch.groupId ?? null)
+          );
+
+          await storage.upsertStanding({
+            bracketId,
+            participant: newMatch.winner,
+            wins: (winnerStanding?.wins ?? 0) + 1,
+            losses: winnerStanding?.losses ?? 0,
+            points: (winnerStanding?.points ?? 0) + 1,
+            groupId: newMatch.groupId ?? null,
+          });
+
+          await storage.upsertStanding({
+            bracketId,
+            participant: loser,
+            wins: loserStanding?.wins ?? 0,
+            losses: (loserStanding?.losses ?? 0) + 1,
+            points: loserStanding?.points ?? 0,
+            groupId: newMatch.groupId ?? null,
+          });
+        }
+
+        // Check if all round robin matches are complete → mark bracket completed
+        if (updated.bracketFormat === "round_robin") {
+          const allMatches = (JSON.parse(updated.structure as string) as any[]).filter(
+            (m: any) => m.player1 && m.player2
+          );
+          const allComplete = allMatches.every((m: any) => m.winner);
+          if (allComplete && updated.status !== "completed") {
+            await storage.updateBracket(bracketId, { status: "completed" });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Standings update error:", e);
+    }
+
+    // Group stage: seed knockout bracket when all group matches complete
+    try {
+      if (updated.bracketFormat === "group_stage") {
+        const newStructure = JSON.parse(updated.structure as string) as any[];
+        const groupMatches = newStructure.filter((m: any) => m.bracketSection === "group");
+        const allGroupComplete = groupMatches.length > 0 && groupMatches.every((m: any) => m.winner);
+
+        if (allGroupComplete) {
+          const knockoutMatches = newStructure.filter((m: any) => m.bracketSection === "knockout");
+          const allKnockoutEmpty = knockoutMatches.every((m: any) => !m.player1 && !m.player2);
+
+          if (allKnockoutEmpty && knockoutMatches.length > 0) {
+            const standings = await storage.getStandings(bracketId);
+            const numGroups = updated.numGroups ?? 2;
+            const advanceCount = updated.advanceCount ?? 1;
+
+            const advancingParticipants: string[] = [];
+            for (let g = 0; g < numGroups; g++) {
+              const groupStandings = standings
+                .filter(s => s.groupId === g)
+                .sort((a, b) => b.points - a.points);
+              for (let i = 0; i < advanceCount && i < groupStandings.length; i++) {
+                advancingParticipants.push(groupStandings[i].participant);
+              }
+            }
+
+            let playerIdx = 0;
+            const seededStructure = newStructure.map((m: any) => {
+              if (m.bracketSection !== "knockout") return m;
+              const seeded = { ...m };
+              if (!seeded.player1 && playerIdx < advancingParticipants.length) {
+                seeded.player1 = advancingParticipants[playerIdx++];
+              }
+              if (!seeded.player2 && playerIdx < advancingParticipants.length) {
+                seeded.player2 = advancingParticipants[playerIdx++];
+              }
+              return seeded;
+            });
+
+            await storage.updateBracket(bracketId, { structure: JSON.stringify(seededStructure) });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Group stage advancement error:", e);
+    }
+
     // Return balance info if it's a private bracket
     if (updated.useIndependentCredits) {
       const balance = await storage.getBracketBalance(req.user.id, updated.id);
@@ -128,8 +299,16 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/brackets", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const brackets = await storage.listBrackets();
-    res.json(brackets);
+    const allBrackets = await storage.listBrackets();
+    const filtered = await Promise.all(
+      allBrackets.map(async (b) => {
+        if (b.isPublic) return b;
+        if (b.creatorId === req.user.id) return b;
+        const joined = await storage.hasJoinedBracket(req.user.id, b.id);
+        return joined ? b : null;
+      })
+    );
+    res.json(filtered.filter(Boolean));
   });
 
   app.get("/api/brackets/:id", async (req, res) => {
@@ -166,6 +345,8 @@ export function registerRoutes(app: Express): Server {
       });
     }
 
+    await storage.joinBracket(req.user.id, bracket.id);
+
     res.sendStatus(200);
   });
 
@@ -177,6 +358,14 @@ export function registerRoutes(app: Express): Server {
     if (!bracket) return res.status(404).json({ message: "Bracket not found" });
     if (bracket.status !== "active") {
       return res.status(400).json({ message: "Bracket not active" });
+    }
+
+    if (!bracket.isPublic) {
+      const isCreator = bracket.creatorId === req.user.id;
+      const hasJoined = await storage.hasJoinedBracket(req.user.id, bracket.id);
+      if (!isCreator && !hasJoined) {
+        return res.status(403).json({ message: "You must join this bracket to place bets" });
+      }
     }
 
     if (bracket.creatorId === req.user.id && !bracket.adminCanBet) {
@@ -234,6 +423,23 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const bets = await storage.getBracketBets(parseInt(req.params.id));
     res.json(bets);
+  });
+
+  app.get("/api/brackets/:id/standings", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const standings = await storage.getStandings(parseInt(req.params.id));
+    res.json(standings);
+  });
+
+  app.get("/api/brackets/:id/joined", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const bracket = await storage.getBracket(parseInt(req.params.id));
+    if (!bracket) return res.status(404).json({ message: "Bracket not found" });
+
+    if (bracket.isPublic) return res.json({ joined: true });
+    if (bracket.creatorId === req.user.id) return res.json({ joined: true });
+    const joined = await storage.hasJoinedBracket(req.user.id, bracket.id);
+    res.json({ joined });
   });
 
   const httpServer = createServer(app);

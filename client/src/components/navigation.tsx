@@ -11,11 +11,16 @@ export function Navigation() {
   }
 
   return (
-    <nav className="border-b bg-background sticky top-0 z-50">
+    <nav className="border-b bg-gamba-navy text-white sticky top-0 z-50 shadow-gamba">
       <div className="container mx-auto px-6 py-3">
         <div className="flex items-center justify-between">
           <Link href="/">
-            <Button variant="ghost" size="sm" className="flex items-center gap-2">
+            <span className="font-silkscreen text-xl font-bold text-gamba-yellow tracking-wide cursor-pointer">
+              GambaGame
+            </span>
+          </Link>
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="flex items-center gap-2 text-white hover:text-gamba-yellow hover:bg-transparent">
               <Home className="h-4 w-4" />
               Home
             </Button>

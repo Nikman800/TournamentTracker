@@ -35,7 +35,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="flex items-center justify-center p-8">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md bg-gamba-card border-2 border-gamba-navy rounded-gamba shadow-gamba">
           <CardHeader>
             <CardTitle>Welcome to Tournament Manager</CardTitle>
           </CardHeader>
@@ -72,7 +72,7 @@ export default function AuthPage() {
                   </div>
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full bg-gamba-navy text-white border-2 border-gamba-navy shadow-gamba hover:translate-x-px hover:translate-y-px hover:shadow-none"
                     disabled={loginMutation.isPending}
                   >
                     Login
@@ -106,7 +106,7 @@ export default function AuthPage() {
                   </div>
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full bg-gamba-navy text-white border-2 border-gamba-navy shadow-gamba hover:translate-x-px hover:translate-y-px hover:shadow-none"
                     disabled={registerMutation.isPending}
                   >
                     Register
